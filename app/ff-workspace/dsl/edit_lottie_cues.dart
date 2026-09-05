@@ -46,7 +46,7 @@ DslWidget cue(String boxName, String widgetName, String cueName, {required doubl
     );
 
 void buildEdit(App app) {
-  // lottie 3.3.x: Dart ^3.9 / Flutter >= 3.35 (FlutterFlow builds with 3.38.5); 3.4+ needs Flutter 3.44
+  // lottie 3.3.x: Dart ^3.9 / Flutter >= 3.35 (FlutterFlow builds with 3.38.6); 3.4+ needs Flutter 3.44
   app.pubDependency('lottie', '3.3.3');
   app.pubDependency('archive', '4.2.0'); // StateCue gunzips with package:archive (web-safe)
 

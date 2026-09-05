@@ -65,7 +65,7 @@ void buildInterviewCracker(App app) {
   app.pubDependency('audioplayers', '^6.1.0');
   app.pubDependency('http', '^1.2.0');
   app.pubDependency('lottie', '3.3.3');
-  app.pubDependency('archive', kArchiveVersion); // StateCue gunzips its embedded cues with package:archive (dart2js-safe, unlike dart:io) // Add-on A state cues (3.4+ needs Flutter 3.44; FlutterFlow builds with 3.38.5)
+  app.pubDependency('archive', kArchiveVersion); // StateCue gunzips its embedded cues with package:archive (dart2js-safe, unlike dart:io) // Add-on A state cues (3.4+ needs Flutter 3.44; FlutterFlow builds with 3.38.6)
 
   // ---- app state (master prompt Phase 4 list + the scalars the custom code fills) ----
   app.state('serverHost', string.withDefault(''), persisted: true);
