@@ -71,3 +71,7 @@ desktop.ini
 
 # --- any env file anywhere ---
 .env
+app/ff-workspace/context/
+app/ff-workspace/.flutterflow/context_meta.json
+app/ff-workspace/AGENTS.md
+app/ff-workspace/CLAUDE.md

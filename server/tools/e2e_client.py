@@ -52,6 +52,7 @@ async def run(args: argparse.Namespace) -> int:
     tts_start_wall = 0.0
     last_frame_sent = 0.0
     report_url = None
+    pending_question = False
 
     async with websockets.connect(f"ws://{args.host}:{args.port}/ws", max_size=8 * 1024 * 1024) as ws:
         hello = {"type": "hello", "token": token, "mode": "interview", "in": {"fmt": "pcm16", "sr": 16000, "ch": 1},
@@ -88,6 +89,7 @@ async def run(args: argparse.Namespace) -> int:
                 return 3
             if t == "question":
                 n_questions += 1
+                pending_question = True
             elif t == "tts_start":
                 tts_start_wall = time.monotonic(); audio_bytes_in_span = 0
                 if last_frame_sent:
@@ -98,7 +100,8 @@ async def run(args: argparse.Namespace) -> int:
                 dur = audio_bytes_in_span / 2 / 24000
                 wait = max(0.0, tts_start_wall + dur - time.monotonic()) + 0.8
                 await asyncio.sleep(wait)
-                if n_questions and report_url is None and events[-2:] and any(e["type"] == "question" for e in events[-40:]):
+                if pending_question and report_url is None:
+                    pending_question = False
                     if n_questions <= args.questions:
                         idx = (n_questions - 1) % len(answers)
                         print(f"-> answering Q{n_questions} with {ANSWERS[idx]}")

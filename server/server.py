@@ -34,7 +34,8 @@ from tools import _env  # noqa: E402  (HF cache, espeak, model dirs)
 try:  # secrets live in server/.env (never committed); missing file is fine
     from dotenv import load_dotenv
 
-    load_dotenv(SERVER_DIR / ".env")
+    load_dotenv(SERVER_DIR.parent / ".env")   # repo-root .env (e.g. GEMINI_API_KEY)
+    load_dotenv(SERVER_DIR / ".env")          # server/.env (Supabase keys etc.)
 except Exception:  # noqa: BLE001
     pass
 
@@ -88,8 +89,15 @@ class Models:
             log.warning("LLM: %s", msg)
         self.stt = STT(prefer_cuda=(args.stt == "cuda"))
         self.info["stt"] = self.stt.provider
-        self.tts = TTS(voice=args.voice, device=args.tts_device)
-        self.info["tts"] = f"kokoro/{self.tts.device}/{self.tts.voice}"
+        if args.tts_backend == "gemini":
+            from audio.tts_gemini import GeminiTTS
+
+            self.tts = GeminiTTS(voice=args.gemini_voice)
+            self.info["tts"] = f"gemini/{self.tts.model}/{self.tts.voice}"
+            log.warning("TTS backend is Gemini (cloud) — not local; switch back with --tts-backend kokoro / TTS_BACKEND=kokoro")
+        else:
+            self.tts = TTS(voice=args.voice, device=args.tts_device)
+            self.info["tts"] = f"kokoro/{self.tts.device}/{self.tts.voice}"
         mem = _env.gpu_mem_mib()
         self.info["vram_mib"] = mem[0] if mem else None
         self.info["load_s"] = round(time.perf_counter() - t0, 1)
@@ -236,8 +244,16 @@ class Session:
 
     # ------------------------------------------------------------------ round
     async def start_round(self) -> None:
+        try:
+            await self._start_round()
+        except Exception as exc:  # noqa: BLE001
+            log.exception("start_round failed")
+            await self.error(P.ErrorCode.INTERNAL, f"start failed: {exc!s}"[:300], fatal=True)
+
+    async def _start_round(self) -> None:
         assert self.hello and self.sid and self.models.llm
         self.set_state(P.SessionState.PREP)
+        t0 = time.perf_counter()
         try:
             self.brain = InterviewBrain(self.models.llm, self.hello.jd or "", self.pressure.value, self.sid)
             rubric = await self.brain.build_rubric()
@@ -245,6 +261,7 @@ class Session:
             log.exception("Stage A failed")
             await self.error(P.ErrorCode.INTERNAL, f"Stage A failed: {exc!s}"[:300], fatal=True)
             return
+        log.info("%s Stage A: %d competencies (rejected %s, reasked=%s) in %.1fs", self.sid, len(rubric["competencies"]), self.brain.rejected_ids, self.brain.reasked, time.perf_counter() - t0)
         self.db.set_rubric(self.sid, rubric)
         n_q = self.brain.agenda.max_questions if self.brain.agenda else 8
         await self.send(P.RubricMessage(role_title=rubric.get("role_title", ""), competencies=self.brain.rubric_chips(), n_questions=n_q))
@@ -258,6 +275,7 @@ class Session:
     async def ask(self, question: dict[str, Any], target: dict[str, Any], lead_in: str = "") -> None:
         assert self.brain and self.sid
         turn = self.brain.commit_question(question, target)
+        log.info("%s %s [%s/%s] %s", self.sid, question["question_id"], target.get("competency_id"), target.get("strategy"), question["text"][:90])
         self.turn = turn
         self.turn_db_ids[turn.idx] = self.db.add_turn(self.sid, turn.idx, question)
         why = question["why"]
@@ -286,6 +304,12 @@ class Session:
             await asyncio.sleep(seconds)
         except asyncio.CancelledError:
             return
+        try:
+            await self._on_timeout()
+        except Exception:  # noqa: BLE001
+            log.exception("timeout handler failed")
+
+    async def _on_timeout(self) -> None:
         if self.state is not P.SessionState.LISTENING or not self.detector.in_speech and self.detector.speech_t == 0:
             # nothing said yet: keep listening a little longer, then treat as an empty answer
             await asyncio.sleep(5.0)
@@ -362,6 +386,13 @@ class Session:
 
     # ------------------------------------------------------------------ answer → brain
     async def on_answer(self, audio: np.ndarray) -> None:
+        try:
+            await self._on_answer(audio)
+        except Exception as exc:  # noqa: BLE001 - a detached task must never die silently
+            log.exception("on_answer failed")
+            await self.error(P.ErrorCode.INTERNAL, f"turn failed: {exc!s}"[:300])
+
+    async def _on_answer(self, audio: np.ndarray) -> None:
         if self.state in (P.SessionState.ANALYSING, P.SessionState.PLANNING, P.SessionState.WRAP):
             return
         assert self.brain and self.turn and self.sid and self.models.stt
@@ -378,10 +409,33 @@ class Session:
         text = transcript.text if transcript else ""
         words = transcript.word_dicts() if transcript else []
         await self.send(P.SttMessage(text=text or "(no speech detected)", final=True))
-        # §5.3 critical-path trick: plan n+1 while judging n
+        log.info("%s %s: %.1fs audio, %d words, stt %.0f ms", self.sid, turn.answer_id, turn.duration_s, len(words), transcript.latency_ms if transcript else 0)
+        # §5.3 critical-path trick: the candidate never waits for analysis. Word the provisional
+        # next question from the coverage matrix + a vagueness heuristic and speak it now; Stage C
+        # runs in the background and folds into the agenda, so a demanded follow-up becomes the
+        # question after this one (and the reaction/mood lands while the candidate listens).
+        analysis_task = asyncio.create_task(self.brain.analyse(turn, text, words))
         prov_target = self.brain.provisional_target(text)
-        prov_q_task = asyncio.create_task(self.brain.word_question(prov_target)) if prov_target else None
-        analysis, gate, _pending = await self.brain.analyse(turn, text, words)
+        stop, reason = self.brain.should_stop()
+        if prov_target is None or stop or self.brain.agenda.total_asked >= self.brain.agenda.max_questions:
+            analysis, gate, _ = await analysis_task
+            await self._after_analysis(turn, analysis, gate, text, words, audio, clip_path)
+            await self.finish_round(reason=reason or "done")
+            return
+        question = await self.brain.word_question(prov_target)
+        lead = self.brain.reaction_line("neutral")
+        asyncio.create_task(self._finish_analysis(turn, analysis_task, text, words, audio, clip_path))
+        await self.ask(question, prov_target, lead_in=lead)
+
+    async def _finish_analysis(self, turn: Turn, analysis_task: "asyncio.Task", text: str, words: list, audio: np.ndarray, clip_path: str | None) -> None:
+        try:
+            analysis, gate, _pending = await analysis_task
+            await self._after_analysis(turn, analysis, gate, text, words, audio, clip_path)
+        except Exception:  # noqa: BLE001
+            log.exception("background analysis failed")
+
+    async def _after_analysis(self, turn: Turn, analysis: dict[str, Any], gate: Any, text: str, words: list, audio: np.ndarray, clip_path: str | None) -> None:
+        assert self.brain
         prosody = answer_delivery(turn.answer_id, words, turn.duration_s, turn.question.get("time_limit_s"), audio if audio.size else None)
         turn.prosody = prosody
         self.per_answer.append(prosody)
@@ -391,27 +445,8 @@ class Session:
         self.kw_missed += kw.get("missed", [])
         self.db.finish_turn(self.turn_db_ids[turn.idx], text, words, analysis, prosody, clip_path)
         mood = self.brain.reaction_for(analysis)
+        log.info("%s %s: verdict=%s mood=%s next=%s dropped=%d", self.sid, turn.answer_id, analysis.get("verdict"), mood, analysis.get("next_strategy"), len(gate.dropped))
         await self.send(P.ReactionMessage(mood=mood, nod=analysis.get("verdict") in ("strong", "adequate")))
-        self.set_state(P.SessionState.PLANNING)
-        final = self.brain.next_target()
-        stop, reason = self.brain.should_stop()
-        if final is None or stop:
-            if prov_q_task:
-                prov_q_task.cancel()
-            await self.finish_round(reason=reason or "done")
-            return
-        if prov_q_task and not self.brain.needs_swap(prov_target, final):
-            try:
-                question = await prov_q_task
-                target = prov_target
-            except Exception:  # noqa: BLE001
-                question, target = await self.brain.word_question(final), final
-        else:
-            if prov_q_task:
-                prov_q_task.cancel()
-            question, target = await self.brain.word_question(final), final
-        lead = self.brain.reaction_line(mood)
-        await self.ask(question, target, lead_in=lead)
 
     async def finish_round(self, reason: str = "done") -> None:
         assert self.brain and self.sid
@@ -616,7 +651,10 @@ def main() -> int:
     ap.add_argument("--token", default=os.environ.get("SESSION_TOKEN"), help="fixed pairing token (default: random)")
     ap.add_argument("--stt", choices=["cuda", "cpu"], default="cuda")
     ap.add_argument("--tts-device", choices=["cuda", "cpu"], default="cuda")
-    ap.add_argument("--voice", default="af_heart")
+    ap.add_argument("--voice", default=os.environ.get("KOKORO_VOICE", "af_heart"))
+    ap.add_argument("--tts-backend", choices=["kokoro", "gemini"], default=os.environ.get("TTS_BACKEND", "kokoro"),
+                    help="kokoro = local (default); gemini = Google Gemini TTS via GEMINI_API_KEY (cloud, optional)")
+    ap.add_argument("--gemini-voice", default=os.environ.get("GEMINI_TTS_VOICE", "Kore"))
     ap.add_argument("--llm-model", default=os.environ.get("LMSTUDIO_MODEL", "interviewer"))
     ap.add_argument("--log-level", default="INFO")
     args = ap.parse_args()

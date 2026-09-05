@@ -139,4 +139,57 @@ Kickoff note: Oikantik's kickoff replaced "stop at every ⛔ until I say go" wit
 - `tools/vad_probe.py` (Silero VAD 6.2.1 ONNX, CPU): 1 segment 0.30→17.90 s in 129 ms for 19.9 s audio (RTF 0.0065); streaming 0.16 ms per 32 ms chunk; end-of-turn fired 756 ms after true end with the 700 ms rule ✅.
 - VRAM with LLM loaded + Kokoro on CUDA (Python process alive): **11,325 / 16,376 MiB** (LLM alone 10,616 MiB incl. ~2.5 GB desktop baseline).
 - `tools/stt_probe.py --providers cuda,cpu-int8` (Parakeet-TDT-0.6B-v2 via onnx-asr 0.12.0, 28.8 s strong-answer clip): **CUDA fp32** load 5.05 s, transcription **265 ms → RTFx 109**, similarity to the script **99.4** (only "Redis" → "RIDI's"); **CPU int8** load 1.96 s, 1,779 ms → RTFx 16, similarity 99.4. Token timestamps are per sub-word token on an 80 ms grid (`' So'@0.24, ','@0.48, ' in'@0.64 …`); words are rebuilt on the leading-space boundary (`audio/stt.py:words_from_tokens`). ✅ **STT path chosen: onnx-asr Parakeet on CUDA fp32, word timestamps derived from token emission times** (DECISIONS.md).
-- VRAM with LLM + Parakeet fp32 on CUDA loaded: **14,254 MiB** (STT alone ≈ 3.6 GB incl. CUDA context) → over the 12.5 GB target once Kokoro joins. Mitigation in progress: fp16 encoder conversion (`tools/convert_parakeet_fp16.py`); fallback: UD-Q4_K_XL LLM (−1.5 GB) or CPU int8 STT (RTFx 16).
+- VRAM with LLM + Parakeet fp32 on CUDA loaded: **14,254 MiB** (STT alone ≈ 3.6 GB incl. CUDA context). Mitigation applied: **fp16 encoder** (`tools/convert_parakeet_fp16.py`, 1.22 GB): similarity 99.2 (= fp32), 235 ms vs 333 ms, **13,331 MiB** vs 14,359 → ~1 GB saved. `audio/stt.py` prefers the fp16 dir automatically.
+- CUDA-family clash: onnxruntime-gpu 1.29 (CUDA 13) + torch cu126 in one process → Kokoro failed with `OSError 127 "The specified procedure could not be found"` (both load `cudnn64_9.dll`). Fixed by pinning `onnxruntime-gpu[cuda,cudnn]==1.24.4` (CUDA 12) — see DECISIONS.
+
+**Step 5 — `tools/selftest.py` (all three models in ONE process, log `docs/logs/phase1-selftest.log`)**
+```
+[selftest] LLM: model 'interviewer' loaded
+[selftest] LLM quick call: 40 tok in 0.78s -> 51.5 tok/s
+[selftest] STT (CUDAExecutionProvider/fp16): 34 words in 234 ms
+[selftest] TTS (cuda): 3.52s audio, 138 visemes in 230 ms
+[selftest] LLM 52 tok/s · VRAM 13.8 GB / 16.0 GB · 28.5s · READY
+```
+Dedicated VRAM with everything loaded = **13.8 GB**, of which ≈ 2.5 GB is the Windows desktop baseline measured before any model (Chrome/DWM) → **≈ 11.3 GB for LLM + STT + TTS**, inside the blueprint's 11.1–11.9 GB estimate. Shared GPU memory: UNVERIFIED (needs Task Manager; NVIDIA "Prefer No Sysmem Fallback" policy is a click for Oikantik: NVIDIA Control Panel → Manage 3D Settings → CUDA – Sysmem Fallback Policy → *Prefer No Sysmem Fallback* for `python.exe` and LM Studio).
+
+**Acceptance (Phase 1)**
+- LLM tok/s and TTFT: **59.3 tok/s median, 104 ms TTFT (warm) / 619 ms (cold)** ✅ (targets ≥ 35 / ≤ 400)
+- JSON-schema call passes: ✅ (3/3 parse + pydantic validate, quotes literal in JD)
+- STT path chosen with word timestamps confirmed: ✅ onnx-asr Parakeet CUDA fp16, words from token emission times
+- Kokoro token timestamps confirmed: ✅ (63/63, 77/77, … tokens carry start_ts/end_ts)
+- VAD works: ✅ (700 ms rule → 756 ms decision latency)
+- Dedicated VRAM total: ✅ 13.8 GB incl. baseline (≈ 11.3 GB ours); shared ≈ 0 UNVERIFIED
+- `uv run python tools/selftest.py` → READY, exit 0 ✅
+- Gemma 4 12B fallback: NOT downloaded (deferred; Qwen beat every target).
+
+---
+
+## Phase 2 — Voice server + interview brain
+
+**Plan**
+1. Integrate the reviewed drafts (schemas, prompts, agenda, quote/rubric/report gates, protocol, visemes + 291 tests) into `server/`.
+2. Write `brain/llm.py` (LM Studio client, JSON schema, thinking off), `brain/interview.py` (Stage A→D orchestration, §5.3 provisional-question trick), `audio/{stt,tts,vad,prosody,resample}.py`, `store/db.py`, `server.py` (FastAPI + WebSocket per §4.1, `/pair`, `/health`, `/report`, `/clips`), `static/test.html`, `tools/{e2e_client,swap_jd_demo,selftest}.py`.
+3. Run `pytest`, then `e2e_client.py --questions 4`, then `swap_jd_demo.py`; record latencies.
+
+**Results so far**
+- `uv run pytest` → **291 passed** ✅ (after fixing 5 cross-draft mismatches: fixture offsets, unicode oracle, outcome verbs, PerQuestion shape, 3-word quote minimum).
+- Server boots in ~24 s with all models (`docs/logs/phase2-server.log`); `/health`, `/pair` (QR), `/pair.json`, `/static/test.html` serve ✅.
+- e2e round 1 (first attempt) found and fixed: client answered only when a `question` was in the last 40 events (visemes pushed it out); detached server tasks swallowed exceptions (now logged + sent as `error`); `AgendaManager.should_stop` is a method not a property; STT long-form threshold 18 s made an 18.1 s answer take 1.5 s (now 28 s).
+- Measured on the 2nd run: Stage A (8 competencies, 0 rejected) **25.5 s**; A1 18.1 s audio → 56 words, STT 1,524 ms (long-form path, since fixed); Stage C **12.6 s** (analysis JSON ~600 tokens at ~55 tok/s) — this is the latency bottleneck to attack in Phase 6 (shorter Stage C output or 2 LM Studio slots).
+- **e2e round 2 (4 questions, Realistic, `docs/logs/phase2-e2e.log`, session `s_931cbb94a9db`) — the loop works end to end:**
+  - Stage A 25.6 s → 8 competencies, 0 rejected by the substring gate, no re-ask.
+  - Q1 open_probe on C1 → A1 (vague fixture) → verdict **vague** → Q2 `dig_deeper_generic` *"You mentioned using caching to improve speed…"* (why-trace triggered by the candidate's own words) → A2 (strong fixture) → **strong**, reaction `interested` + nod → Q3 `quantify_result` → A3 (generic) → **generic** → Q4 moved to C7 (on-call) → A4 (team) → generic → Q5 quantify_result → cancel → **report**.
+  - STT per answer 215–323 ms for 17–21 s clips (fp16 CUDA); Stage B ~1.05 s; Stage C **11.1 s** (the bottleneck); answer-end → next question **8.3–12.6 s** (target ≤ 1.8 s) → fixed after this run by moving Stage C off the critical path (§5.3: speak the provisional question at once, fold the analysis in while the candidate listens). Re-measure in Phase 6.
+  - Report (`/report/s_931cbb94a9db`): band **borderline**, mover "Replace all vague references to 'stuff' or 'caching' with specific technology names… quantify". Top fixes quote **"used caching and stuff to make it better" (A1)** and **"I think maybe" (A1)** — both literal transcript spans; the report gate dropped one ungrounded bullet (`top_fixes[2] not_validated`), exactly the evidence lock the blueprint asks for. Per-question STAR strips S/A present, T/R absent for all four; empty must-have rows C2–C8 listed; delivery WPM 172, 8 hedges.
+  - Found by the e2e ordering check: viseme `t_ms` restarted at 0 inside a TTS span → fixed in `audio/tts.py` (monotonic clamp across chunks).
+- Gemini TTS backend added as an **opt-in** (`--tts-backend gemini`, `TTS_BACKEND=gemini`, `GEMINI_API_KEY` from `E:\Enigma for Masai\.env`); default stays Kokoro (local). Model ids per Google docs today: `gemini-3.1-flash-tts-preview` (default), `gemini-2.5-pro-preview-tts`, `gemini-2.5-flash-preview-tts` — there is no "3.1 pro" TTS model. Uses the RMS mouth fallback (§6.3). UNVERIFIED end-to-end (needs a run with the key).
+
+---
+
+## Phase 3 — Supabase: schema, security, sync
+
+- Migration reviewed (security / Postgres / spec lenses) and **applied** via MCP `apply_migration`: `init` (tables, indexes, RLS, trigger, `claim_guest_sessions`) and `storage_clips` (private bucket + owner policies). Files: `server/supabase/migrations/0001_init.sql`, `0002_storage.sql`.
+- Verification: `pg_class.relrowsecurity = true` for jds, profiles, reports, sessions, turns ✅. `get_advisors(security)` → exactly one WARN, the accepted 0029 on `claim_guest_sessions` ✅. `get_advisors(performance)` → only 0005 unused-index INFO on the five new indexes (expected before traffic) ✅.
+- Review deviations from the master prompt (logged in DECISIONS): clients get SELECT+DELETE only on server-owned tables; `sessions.jd_id` ON DELETE RESTRICT; guest claim keyed strictly on a ≥ 32-char device secret.
+- Server side: `store/sync.py` outbox worker (jds → sessions → turns → reports → clips, deterministic uuid5 ids, service-role key, `SUPABASE_MODE=cloud|selfhosted|off`), wired into `server.py` + `/health.sync`. `server/env.example` lists the keys (`.env*` names are write-protected for Claude, hence the name). **Oikantik must paste `SUPABASE_SERVICE_ROLE_KEY` into `server/.env`** for the sync to run; sync end-to-end is UNVERIFIED until then.
+- FlutterFlow side (schema refresh, auth guest toggle): pending Phase 4 push.

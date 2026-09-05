@@ -75,13 +75,24 @@ class TTS:
                         tk.start_ts = tk.start_ts + offset
                     if getattr(tk, "end_ts", None) is not None:
                         tk.end_ts = tk.end_ts + offset
+                dur = len(audio) / SR
                 if any(getattr(tk, "start_ts", None) is not None for tk in tokens):
-                    vis = visemes_from_tokens(tokens)
+                    # tokens already carry the utterance offset; total_ms pins a trailing rest at the chunk end
+                    vis = visemes_from_tokens(tokens, offset_ms=0, total_ms=int((offset + dur) * 1000))
                 else:  # no timestamps (non-English voice): RMS fallback per §6.3
                     vis = mouth_events_to_visemes(rms_mouth_events(float_to_pcm16(audio), SR))
                     for ev in vis:
                         ev["t_ms"] = int(ev["t_ms"] + offset * 1000)
-                dur = len(audio) / SR
+                # never let the track go backwards across chunks (Kokoro's first token can sit before the
+                # previous chunk's trailing rest by a frame) — the client schedules by t_ms
+                floor = int(offset * 1000)
+                fixed = []
+                for ev in vis:
+                    t = max(int(ev["t_ms"]), floor)
+                    if fixed and t < fixed[-1]["t_ms"]:
+                        t = fixed[-1]["t_ms"]
+                    fixed.append({"t_ms": t, "id": int(ev["id"])})
+                vis = fixed
                 yield TTSChunk(audio=audio, pcm16=float_to_pcm16(audio), visemes=vis, start_s=offset, end_s=offset + dur, text=sentence, tokens=tokens)
                 offset += dur
 

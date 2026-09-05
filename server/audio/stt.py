@@ -68,7 +68,7 @@ class STT:
     """Loads once; ``transcribe`` is synchronous (run it in a thread from the event loop)."""
 
     def __init__(self, prefer_cuda: bool = True, quantization: str | None = None, model_name: str = MODEL_NAME,
-                 long_form_s: float = 18.0):
+                 long_form_s: float = 28.0):
         import onnx_asr
         import onnxruntime as ort
 

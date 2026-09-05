@@ -215,7 +215,8 @@ class InterviewBrain:
 
     def should_stop(self) -> tuple[bool, str | None]:
         assert self.agenda is not None
-        return self.agenda.should_stop
+        v = self.agenda.should_stop
+        return v() if callable(v) else v  # AgendaManager exposes it as a method
 
     # ------------------------------------------------------------------ Stage C
     def _prior_claims(self, upto: Turn) -> tuple[str, dict[str, list[dict[str, Any]]]]:
