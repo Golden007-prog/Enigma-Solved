@@ -1,0 +1,27 @@
+JD A: jd_fintech.txt                                         JD B: jd_edtech.txt
+Backend Developer (Node.js)                                  Backend Developer (Node.js)
+competencies: Payment System Fundamentals, Data Integrity    competencies: Node.js and JavaScript Fundamentals, Databas
+(rejected by gate: [], reasked=False)                        (rejected by gate: [], reasked=False)
+-----------------------------------------------------------------------------------------------------------------------
+Q1 [C1 · open_probe] Can you describe a Node.js API you      Q1 [C1 · open_probe] Can you describe a Node.js project
+built for UPI flows and explain how you handled double-      you built, preferably using Express, and what role it
+charging risks?                                              played in your work?
+  ↳ JD: “You will build and maintain RESTful payment APIs”     ↳ JD: “You have solid JavaScript fundamentals and have”
+  ↳ JD: “in Node.js that handle UPI collect and intent”        ↳ JD: “built at least one project on Node.js, preferably”
+  ↳ JD: “flows for merchant checkout.”                         ↳ JD: “with Express.”
+
+Q2 [C6 · open_probe] Describe a time you were on-call for    Q2 [C2 · open_probe] Can you describe a time you designed
+an incident. How did you handle it and write a post-         a database schema specifically optimized for read-heavy
+mortem?                                                      workloads?
+  ↳ JD: “You will participate in a weekly on-call rotation”     ↳ JD: “You have worked with MongoDB or another document”
+  ↳ JD: “with a senior engineer and write a short post-”       ↳ JD: “database and understand how to design schemas for”
+  ↳ JD: “mortem for every incident you handle.”                ↳ JD: “read-heavy workloads.”
+
+Q3 [C2 · open_probe] Have you ever designed a database       Q3 [C3 · open_probe] Can you share a time you implemented
+schema for a ledger or transaction system? Please describe   Firebase authentication in a project and what challenges
+how you structured it.                                       you faced?
+  ↳ JD: “You will write PostgreSQL schemas and”                ↳ JD: “You have used Firebase, whether for”
+  ↳ JD: “transactional queries for ledger entries,”            ↳ JD: “authentication, Firestore, Cloud Messaging or the”
+  ↳ JD: “settlements and reconciliation reports.”              ↳ JD: “Realtime Database.”
+
+identical questions across JDs: 0 (want 0)

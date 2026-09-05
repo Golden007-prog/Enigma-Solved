@@ -414,15 +414,20 @@ class Session:
         # next question from the coverage matrix + a vagueness heuristic and speak it now; Stage C
         # runs in the background and folds into the agenda, so a demanded follow-up becomes the
         # question after this one (and the reaction/mood lands while the candidate listens).
-        analysis_task = asyncio.create_task(self.brain.analyse(turn, text, words))
+        # LM Studio runs with --parallel 1, so requests are served strictly in arrival order: the
+        # provisional question (Stage B, ~150 tokens) must be requested BEFORE Stage C (~600 tokens)
+        # or it queues behind it and the candidate waits ~10 s (measured in e2e round 3).
         prov_target = self.brain.provisional_target(text)
         stop, reason = self.brain.should_stop()
         if prov_target is None or stop or self.brain.agenda.total_asked >= self.brain.agenda.max_questions:
-            analysis, gate, _ = await analysis_task
+            analysis, gate, _ = await self.brain.analyse(turn, text, words)
             await self._after_analysis(turn, analysis, gate, text, words, audio, clip_path)
             await self.finish_round(reason=reason or "done")
             return
+        t0 = time.perf_counter()
         question = await self.brain.word_question(prov_target)
+        log.info("%s stage B (provisional %s) %.0f ms", self.sid, prov_target.competency_id if hasattr(prov_target, "competency_id") else prov_target, (time.perf_counter() - t0) * 1000)
+        analysis_task = asyncio.create_task(self.brain.analyse(turn, text, words))
         lead = self.brain.reaction_line("neutral")
         asyncio.create_task(self._finish_analysis(turn, analysis_task, text, words, audio, clip_path))
         await self.ask(question, prov_target, lead_in=lead)

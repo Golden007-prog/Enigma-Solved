@@ -111,6 +111,7 @@ async def run(args: argparse.Namespace) -> int:
             elif t == "report":
                 report_url = m["url"]
                 break
+        args.latencies = latencies  # bench_latency.py reads these
         spans = P.check_tts_ordering(events)
         types = [e["type"] for e in events]
         assert types[0] == "ready", types[:3]

@@ -15,6 +15,8 @@ import 'dart:io';
 
 import 'package:flutterflow_ai/flutterflow_ai.dart';
 
+import 'state_cue_code.dart' show kStateCueCode;
+
 Future<void> main(List<String> args) async {
   final options = _parseCliOptions(args);
   try {
@@ -57,11 +59,13 @@ void buildInterviewCracker(App app) {
   // ---- pub dependencies (pins verified against pub.dev for FlutterFlow's Dart 3.10) ----
   app.pubDependency('record', '6.2.1');
   app.pubDependency('web_socket_channel', '3.0.3');
-  app.pubDependency('flutter_soloud', '3.5.4');
+  app.pubDependency('flutter_pcm_sound', '3.3.3'); // raw PCM16 playback, zero deps (flutter_soloud 3.x needs path_provider ^2.1.5; FlutterFlow pins 2.1.4 and drops overrides)
   app.pubDependency('audio_session', '0.2.4');
   app.pubDependency('mobile_scanner', '7.4.0');
   app.pubDependency('audioplayers', '^6.1.0');
   app.pubDependency('http', '^1.2.0');
+  app.pubDependency('lottie', '3.3.3');
+  app.pubDependency('archive', kArchiveVersion); // StateCue gunzips its embedded cues with package:archive (dart2js-safe, unlike dart:io) // Add-on A state cues (3.4+ needs Flutter 3.44; FlutterFlow builds with 3.38.5)
 
   // ---- app state (master prompt Phase 4 list + the scalars the custom code fills) ----
   app.state('serverHost', string.withDefault(''), persisted: true);
@@ -102,7 +106,7 @@ void buildInterviewCracker(App app) {
     'VoiceLinkHost',
     parameters: {'navigateOnEvents': bool_},
     description: 'Status pill; its file also hosts the VoiceLink singleton (WebSocket + mic + playback + events). Set navigateOnEvents on Prep/Room so the first question / report event moves the user on.',
-    code: _voiceLinkHostCode,
+    code: kVoiceLinkHostCode,
   );
   app.customWidget(
     'InterviewerAvatar',
@@ -133,6 +137,12 @@ void buildInterviewCracker(App app) {
     parameters: const <String, DslType>{},
     description: 'Live single-line caption of what the server heard (stt events) and the listening state.',
     code: _transcriptTickerCode,
+  );
+  app.customWidget(
+    'StateCue',
+    parameters: {'cue': string, 'loop': bool_},
+    description: 'Add-on A Lottie state cue. cue = asset name (mic_idle, listening_wave, thinking_dots, speaking, countdown_warning, qr_scan, connected_check, offline, empty_history, report_success) or a page rule: room / pair. Animations embedded (gzip+base64), reduced-motion aware, pure UI.',
+    code: kStateCueCode,
   );
   app.customWidget(
     'ReportView',
@@ -250,6 +260,7 @@ void buildInterviewCracker(App app) {
             color: Colors.alternate,
             child: CustomWidget(widgetName: 'PairScanner', arguments: const <String, Object?>{}, name: 'PairScannerWidget'),
           ),
+          Container(width: double.infinity, height: 72, name: 'PairCueBox', child: CustomWidget(widgetName: 'StateCue', arguments: {'cue': 'pair', 'loop': true}, name: 'PairCue')),
           Text('Or type it', style: Styles.titleMedium),
           TextField(
             label: 'ip:port:token',
@@ -317,6 +328,7 @@ void buildInterviewCracker(App app) {
             ),
           ),
           Text('The first question starts automatically when the interviewer is ready.', style: Styles.bodySmall, color: Colors.secondaryText),
+          Container(width: double.infinity, height: 48, name: 'PrepCueBox', child: CustomWidget(widgetName: 'StateCue', arguments: {'cue': 'thinking_dots', 'loop': true}, name: 'PrepCue')),
           Container(width: double.infinity, height: 44, child: CustomWidget(widgetName: 'VoiceLinkHost', arguments: {'navigateOnEvents': true}, name: 'PrepStatus')),
         ],
       ),
@@ -339,6 +351,7 @@ void buildInterviewCracker(App app) {
             color: Colors.alternate,
             child: CustomWidget(widgetName: 'InterviewerAvatar', arguments: {'debugCycle': false}, name: 'Avatar'),
           ),
+          Container(width: double.infinity, height: 40, name: 'RoomCueBox', child: CustomWidget(widgetName: 'StateCue', arguments: {'cue': 'room', 'loop': true}, name: 'RoomCue')),
           Container(width: double.infinity, height: 190, child: CustomWidget(widgetName: 'QuestionCard', arguments: const <String, Object?>{}, name: 'QuestionCardWidget')),
           Row(
             spacing: 10,
@@ -368,6 +381,7 @@ void buildInterviewCracker(App app) {
         padding: 12,
         spacing: 10,
         children: [
+          Container(width: double.infinity, height: 64, name: 'ReportCueBox', child: CustomWidget(widgetName: 'StateCue', arguments: {'cue': 'report_success', 'loop': false}, name: 'ReportCue')),
           Expanded(Container(width: double.infinity, child: CustomWidget(widgetName: 'ReportView', arguments: const <String, Object?>{}, name: 'ReportViewWidget'))),
           Button(
             'New interview',
@@ -399,6 +413,7 @@ void buildInterviewCracker(App app) {
         children: [
           Text('Your past rounds sync to Supabase when the laptop is online and you are signed in.', style: Styles.bodyMedium, color: Colors.secondaryText),
           Text('Guest rounds live on the laptop: open http://<laptop>:8765/sessions.', style: Styles.bodySmall, color: Colors.secondaryText, visible: AppState('isGuest')),
+          Container(width: double.infinity, height: 160, name: 'HistoryCueBox', child: CustomWidget(widgetName: 'StateCue', arguments: {'cue': 'empty_history', 'loop': true}, name: 'HistoryCue')),
         ],
       ),
     ),
@@ -412,7 +427,10 @@ void buildInterviewCracker(App app) {
 // Custom code — VoiceLinkHost (file also defines the VoiceLink singleton)
 // ---------------------------------------------------------------------------
 
-const String _voiceLinkHostCode = r'''
+/// archive version that lottie 3.3.3 resolves to (pubspec.lock of the generated tree, 2026-09-05)
+const String kArchiveVersion = '4.2.0';
+
+const String kVoiceLinkHostCode = r'''
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -421,7 +439,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:record/record.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:flutter_soloud/flutter_soloud.dart';
+import 'package:flutter_pcm_sound/flutter_pcm_sound.dart' as pcmsound; // prefixed: its IosAudioCategory clashes with record's
 import 'package:audio_session/audio_session.dart';
 import '/app_state.dart';
 
@@ -482,9 +500,20 @@ class VoiceLink {
   final BytesBuilder _carry = BytesBuilder(copy: false);
   static const int kFrameBytes = 640;
 
-  AudioSource? _src;
-  SoundHandle? _handle;
-  bool _soloudReady = false;
+  // playback (flutter_pcm_sound): the platform holds a FIFO of PCM16 frames; the playback clock is
+  // what we fed minus what the feed callback says is still queued (anchored), wall clock in between.
+  bool _pcmReady = false;
+  Future<void>? _pcmSetup;
+  bool _playing = false;
+  int _playGeneration = 0;
+  int _fedFrames = 0;            // frames handed to the platform since setup
+  int _spanStartFrames = 0;      // _fedFrames when the current tts span started
+  int _anchorFrames = 0;         // played frames at _anchorWall (from the feed callback)
+  DateTime? _anchorWall;
+  DateTime? _firstFeedWall;      // first feed of the current span (fallback clock)
+  final List<Uint8List> _pending = <Uint8List>[]; // frames that arrived before setup finished
+  static const int kOutSampleRate = 24000;
+  static const int kOutputLatencyMs = 80;
   final List<List<int>> _visemes = <List<int>>[]; // [t_ms, id]
   Timer? _visemeTimer;
   int _lastQuestionIdx = 0;
@@ -562,10 +591,7 @@ class VoiceLink {
       ),
       androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
     ));
-    if (!_soloudReady) {
-      await SoLoud.instance.init(sampleRate: 24000, channels: Channels.mono);
-      _soloudReady = true;
-    }
+    await _ensurePcm();
   }
 
   Future<void> _startMic() async {
@@ -596,63 +622,116 @@ class VoiceLink {
   }
 
   // ------------------------------------------------------------------ audio out
+  Future<void> _ensurePcm() {
+    if (_pcmReady) return Future<void>.value();
+    return _pcmSetup ??= () async {
+      try {
+        await pcmsound.FlutterPcmSound.setLogLevel(pcmsound.LogLevel.error);
+        // 3.3.3 plays through Android's default media AudioTrack (loudspeaker); the audio_session
+        // config above owns focus/routing. iOS: playAndRecord so the mic stays open while we play.
+        await pcmsound.FlutterPcmSound.setup(
+          sampleRate: kOutSampleRate, channelCount: 1,
+          iosAudioCategory: pcmsound.IosAudioCategory.playAndRecord,
+        );
+        // the callback fires whenever the queue drops under 200 ms; it re-anchors the playback clock
+        await pcmsound.FlutterPcmSound.setFeedThreshold(kOutSampleRate ~/ 5);
+        pcmsound.FlutterPcmSound.setFeedCallback(_onFeed);
+        _fedFrames = 0; _spanStartFrames = 0; _anchorFrames = 0; _anchorWall = null;
+        _pcmReady = true;
+        for (final f in _pending) { _feed(f); }
+        _pending.clear();
+      } catch (e) {
+        debugPrint('FlutterPcmSound.setup: $e');
+      } finally {
+        _pcmSetup = null;
+      }
+    }();
+  }
+
+  void _onFeed(int remainingFrames) {
+    // exact position: everything we fed minus what the platform still holds
+    _anchorFrames = (_fedFrames - remainingFrames).clamp(0, _fedFrames);
+    _anchorWall = DateTime.now();
+  }
+
   void _startPlayback() {
-    if (!_soloudReady) return;
-    _stopPlayback();
-    _src = SoLoud.instance.setBufferStream(
-      maxBufferSizeBytes: 1024 * 1024 * 24,
-      bufferingType: BufferingType.released,
-      bufferingTimeNeeds: 0.15,
-      sampleRate: 24000,
-      channels: Channels.mono,
-      format: BufferType.s16le,
-    );
+    _visemeTimer?.cancel();
+    _playGeneration++;
+    _playing = true;
+    _spanStartFrames = _fedFrames;
+    _anchorWall = null;
+    _firstFeedWall = null;
     _visemes.clear();
     mouth.value = 0;
     speaking.value = true;
     FFAppState().update(() { FFAppState().isSpeaking = true; });
-    _visemeTimer?.cancel();
+    if (!_pcmReady) _ensurePcm();
     _visemeTimer = Timer.periodic(const Duration(milliseconds: 25), (_) => _tickVisemes());
   }
 
   void _onAudio(Uint8List pcm) {
-    final src = _src;
-    if (src == null) return;
-    try {
-      SoLoud.instance.addAudioDataStream(src, pcm);
-      if (_handle == null) {
-        SoLoud.instance.play(src).then((h) => _handle = h);
-      }
-    } catch (e) {
-      debugPrint('addAudioDataStream: $e');
+    if (!_playing) return;
+    if (!_pcmReady) { _pending.add(pcm); _ensurePcm(); return; }
+    _feed(pcm);
+  }
+
+  void _feed(Uint8List pcm) {
+    final even = pcm.length & ~1;
+    if (even == 0) return;
+    // PcmArrayInt16 ships the WHOLE underlying buffer, so hand it an exact-size copy
+    final copy = Uint8List.fromList(even == pcm.length ? pcm : pcm.sublist(0, even));
+    _firstFeedWall ??= DateTime.now();
+    _fedFrames += even ~/ 2;
+    pcmsound.FlutterPcmSound.feed(pcmsound.PcmArrayInt16(bytes: copy.buffer.asByteData())).catchError((Object e) { debugPrint('pcm feed: $e'); });
+  }
+
+  /// Milliseconds of the current tts span that have actually left the speaker.
+  int _playedMsInSpan() {
+    final now = DateTime.now();
+    int played;
+    if (_anchorWall != null && _anchorFrames >= _spanStartFrames) {
+      played = _anchorFrames + now.difference(_anchorWall!).inMilliseconds * (kOutSampleRate ~/ 1000);
+    } else if (_firstFeedWall != null) {
+      played = _spanStartFrames + (now.difference(_firstFeedWall!).inMilliseconds - kOutputLatencyMs) * (kOutSampleRate ~/ 1000);
+    } else {
+      return 0;
     }
+    played = played.clamp(_spanStartFrames, _fedFrames);
+    return (played - _spanStartFrames) * 1000 ~/ kOutSampleRate;
   }
 
   void _endPlayback() {
-    final src = _src;
-    if (src != null) { try { SoLoud.instance.setDataIsEnded(src); } catch (_) {} }
-    // let the tail play out, then drop the mouth
-    Timer(const Duration(milliseconds: 1500), () { if (!speaking.value) mouth.value = 0; });
-    speaking.value = false;
-    FFAppState().update(() { FFAppState().isSpeaking = false; });
+    // nothing to flush: let the queued tail play out, then drop the mouth and the speaking flag
+    final gen = _playGeneration;
+    final remainingMs = ((_fedFrames - _spanStartFrames) * 1000 ~/ kOutSampleRate) - _playedMsInSpan();
+    Timer(Duration(milliseconds: remainingMs.clamp(0, 15000) + 150), () {
+      if (gen != _playGeneration) return;
+      _playing = false;
+      _visemeTimer?.cancel();
+      mouth.value = 0;
+      speaking.value = false;
+      FFAppState().update(() { FFAppState().isSpeaking = false; });
+    });
   }
 
   void _stopPlayback() {
+    // barge-in / interrupt / disconnect: drop whatever is still queued. release() is the only flush
+    // the plugin offers, so the next span re-runs setup (tens of ms; frames are buffered meanwhile).
     _visemeTimer?.cancel();
-    final src = _src;
-    if (src != null) {
-      try { SoLoud.instance.setDataIsEnded(src); } catch (_) {}
-      try { if (_handle != null) SoLoud.instance.stop(_handle!); } catch (_) {}
-      try { SoLoud.instance.disposeSource(src); } catch (_) {}
+    _playing = false;
+    _visemes.clear();
+    _pending.clear();
+    mouth.value = 0;
+    if (_pcmReady) {
+      _pcmReady = false;
+      pcmsound.FlutterPcmSound.setFeedCallback(null);
+      pcmsound.FlutterPcmSound.release().catchError((Object e) { debugPrint('pcm release: $e'); });
     }
-    _src = null; _handle = null; _visemes.clear(); mouth.value = 0;
   }
 
   void _tickVisemes() {
-    final src = _src;
-    if (src == null || _visemes.isEmpty) return;
-    int playedMs;
-    try { playedMs = SoLoud.instance.getStreamTimeConsumed(src).inMilliseconds; } catch (_) { return; }
+    if (!_playing || _visemes.isEmpty) return;
+    final playedMs = _playedMsInSpan();
     int? id;
     while (_visemes.isNotEmpty && _visemes.first[0] <= playedMs) { id = _visemes.removeAt(0)[1]; }
     if (id != null) mouth.value = id;

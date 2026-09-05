@@ -1,0 +1,82 @@
+{
+  "mic_idle": {
+    "name": "mic_on",
+    "url": "https://lottiefiles.com/animations/mic-on-vX5uqF4NOg",
+    "author": "jzyquumjhp",
+    "jsonUrl": "https://assets-v2.lottiefiles.com/a/1214c000-1172-11ee-b926-2f447fab4e35/A65ndhsMSn.json",
+    "bytes": 21218,
+    "role": "primary"
+  },
+  "listening_wave": {
+    "name": "voice",
+    "url": "https://lottiefiles.com/animations/voice-XqGAJYnkFm",
+    "author": "8f5ufqi7fl1enskt",
+    "jsonUrl": "https://assets-v2.lottiefiles.com/a/db5d080a-118b-11ee-bc72-1f5cb475748d/0d7GLiKPXH.json",
+    "bytes": 12665,
+    "role": "primary"
+  },
+  "thinking_dots": {
+    "name": "loading dots",
+    "url": "https://lottiefiles.com/animations/loading-dots-zjFgEqTaJW",
+    "author": "wdcwjqsa5c19xf06",
+    "jsonUrl": "https://assets-v2.lottiefiles.com/a/ca641c6c-1165-11ee-b8c1-23e1ecec47dd/qpZrl4YWwQ.json",
+    "bytes": 7722,
+    "role": "secondary"
+  },
+  "speaking": {
+    "name": "speaker",
+    "url": "https://lottiefiles.com/animations/speaker-F0BShEsQyS",
+    "author": "fkper7rap6fois3u",
+    "jsonUrl": "https://assets-v2.lottiefiles.com/a/7a0e50ca-1174-11ee-9fe9-a3c1cd671703/zkCmZksozs.json",
+    "bytes": 26745,
+    "role": "tertiary"
+  },
+  "countdown_warning": {
+    "name": "warning",
+    "url": "https://lottiefiles.com/animations/warning-6Hz20v0HcO",
+    "author": "o2o6mzg5m2f2xmqz",
+    "jsonUrl": "https://assets-v2.lottiefiles.com/a/6124f758-e063-11ee-bc7c-d340c0d5133e/6nlPPHHYk1.json",
+    "bytes": 6593,
+    "role": "warning"
+  },
+  "qr_scan": {
+    "name": "QR Scan",
+    "url": "https://lottiefiles.com/animations/qr-scan-sWvkVj0N5q",
+    "author": "zdwne3dx2v94m1qu",
+    "jsonUrl": "https://assets-v2.lottiefiles.com/a/9e7e23ec-117c-11ee-afa8-f7a4870bf0f3/HKwS05Ydd2.json",
+    "bytes": 40784,
+    "role": "secondary"
+  },
+  "connected_check": {
+    "name": "Success",
+    "url": "https://lottiefiles.com/animations/success-5ZYxkCGG6h",
+    "author": "nwuiosky9p",
+    "jsonUrl": "https://assets-v2.lottiefiles.com/a/4edd285a-1178-11ee-b979-43e1d701ee28/Snn7BR4S4r.json",
+    "bytes": 4907,
+    "role": "success"
+  },
+  "offline": {
+    "name": "no internet",
+    "url": "https://lottiefiles.com/animations/no-internet-jzg0A6Bb2h",
+    "author": "tkxrwmpbja",
+    "jsonUrl": "https://assets-v2.lottiefiles.com/a/e32b8f14-116f-11ee-b9da-873c52e966fe/cXC7q7tZEU.json",
+    "bytes": 29474,
+    "role": "error"
+  },
+  "empty_history": {
+    "name": "empty",
+    "url": "https://lottiefiles.com/animations/empty-6eKau18esg",
+    "author": "otq1xzry2d",
+    "jsonUrl": "https://assets-v2.lottiefiles.com/a/0953d504-117d-11ee-aa49-1f149204cb5f/EPFlG67OSf.json",
+    "bytes": 58614,
+    "role": "secondary"
+  },
+  "report_success": {
+    "name": "Confetti",
+    "url": "https://lottiefiles.com/animations/confetti-VZJq53kChU",
+    "author": "ezypto9bou",
+    "jsonUrl": "https://assets-v2.lottiefiles.com/a/2ddd8ac6-1170-11ee-b6d1-8704c901f0fc/dRTiI5LdTK.json",
+    "bytes": 27373,
+    "role": "success"
+  }
+}

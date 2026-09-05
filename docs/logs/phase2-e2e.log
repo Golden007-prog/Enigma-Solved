@@ -1,0 +1,49 @@
+<- {"type": "ready", "session": "s_69fa1a39782a"}
+<- {"type": "rubric", "role_title": "Backend Developer (Node.js)", "competencies": [{"id": "C1", "name": "Backend API Development", "priority": "must_have", "type"
+<- {"type": "question", "id": "Q1", "text": "Can you describe a Node.js project using Express or Fastify that you built for an assignment or internship?", "why": {
+<- {"type": "tts_start", "sr": 24000}
+<- {"type": "tts_end"}
+-> answering Q1 with sample_answer_vague_16k.wav
+<- {"type": "vad", "state": "speech_start"}
+<- {"type": "vad", "state": "speech_end"}
+<- {"type": "stt", "text": "So, in my final year project we had some API stuff that was kind of slow, and I think maybe we used caching and stuff to make it better
+<- {"type": "question", "id": "Q2", "text": "Can you describe a Node.js project using Express or Fastify you have built? What was your specific role in designing i
+<- {"type": "tts_start", "sr": 24000}
+   latency answer-end -> tts_start: 12469 ms
+<- {"type": "reaction", "mood": "thinking", "nod": false}
+<- {"type": "tts_end"}
+-> answering Q2 with sample_answer_strong_16k.wav
+<- {"type": "vad", "state": "speech_start"}
+<- {"type": "vad", "state": "speech_end"}
+<- {"type": "vad", "state": "speech_start"}
+<- {"type": "stt", "text": "In my internship at a logistics startup, our order tracking API was taking 900 milliseconds per request, and I was asked to bring it un
+<- {"type": "question", "id": "Q3", "text": "Since your project had performance issues, how would you design an incident response plan if you were on-call during a
+<- {"type": "tts_start", "sr": 24000}
+   latency answer-end -> tts_start: 10188 ms
+<- {"type": "reaction", "mood": "thinking", "nod": false}
+<- {"type": "tts_end"}
+-> answering Q3 with sample_answer_generic_16k.wav
+<- {"type": "vad", "state": "speech_start"}
+<- {"type": "vad", "state": "speech_end"}
+<- {"type": "stt", "text": "I am a very passionate and hard working developer with strong problem solving skills. I believe in writing clean, scalable and robust c
+<- {"type": "question", "id": "Q4", "text": "You handled caching well there. Now, tell me about a database schema you designed for a ledger or financial system.", 
+<- {"type": "tts_start", "sr": 24000}
+   latency answer-end -> tts_start: 9469 ms
+<- {"type": "reaction", "mood": "thinking", "nod": false}
+<- {"type": "tts_end"}
+-> answering Q4 with sample_answer_team_16k.wav
+<- {"type": "vad", "state": "speech_start"}
+<- {"type": "vad", "state": "speech_end"}
+<- {"type": "stt", "text": "In our college project we built a food delivery API for a hackathon. We used Express for the roots and we stored orders in MongoDB. We 
+<- {"type": "question", "id": "Q5", "text": "You mentioned writing clean and robust code. For a ledger system where money moves, how would you design your PostgreS
+<- {"type": "tts_start", "sr": 24000}
+   latency answer-end -> tts_start: 11391 ms
+<- {"type": "reaction", "mood": "neutral", "nod": false}
+<- {"type": "tts_end"}
+<- {"type": "tts_start", "sr": 24000}
+<- {"type": "tts_end"}
+<- {"type": "report", "url": "http://10.1.187.143:8765/report/s_69fa1a39782a", "session": "s_69fa1a39782a"}
+OK: 5 question(s), 6 tts span(s), 4 answers; report: http://10.1.187.143:8765/report/s_69fa1a39782a
+latency ms: median=11391 min=9469 max=12469
+report: band=not yet ready fixes=3 per_question=4 stop=cancelled
+quote check: 3/3 fixes grounded

@@ -1,0 +1,14 @@
+   latency answer-end -> tts_start: 1484 ms
+   latency answer-end -> tts_start: 2219 ms
+   latency answer-end -> tts_start: 2156 ms
+   latency answer-end -> tts_start: 2500 ms
+   latency answer-end -> tts_start: 1875 ms
+--- round 1: rc=0 latencies=[1484, 2219, 2156, 2500, 1875]
+   latency answer-end -> tts_start: 1359 ms
+   latency answer-end -> tts_start: 2859 ms
+   latency answer-end -> tts_start: 1422 ms
+   latency answer-end -> tts_start: 1406 ms
+   latency answer-end -> tts_start: 1797 ms
+--- round 2: rc=0 latencies=[1359, 2859, 1422, 1406, 1797]
+{"date": "2026-09-05 15:06", "pressure": "realistic", "turns": 10, "rounds": 2, "p50_ms": 1836, "p95_ms": 2859, "min_ms": 1359, "max_ms": 2859, "wall_s": 286}
+PROGRESS.md updated: p50 1836 ms, p95 2859 ms over 10 turns

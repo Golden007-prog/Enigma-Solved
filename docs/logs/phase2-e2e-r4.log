@@ -1,0 +1,50 @@
+<- {"type": "ready", "session": "s_f9cd54fe76a0"}
+<- {"type": "rubric", "role_title": "Backend Developer (Node.js)", "competencies": [{"id": "C1", "name": "Payment System Fundamentals", "priority": "must_have", "t
+<- {"type": "question", "id": "Q1", "text": "In a payment system where you must ensure no double charging even on retries, describe how you would design idempotenc
+<- {"type": "tts_start", "sr": 24000}
+<- {"type": "tts_end"}
+-> answering Q1 with sample_answer_vague_16k.wav
+<- {"type": "vad", "state": "speech_start"}
+<- {"type": "vad", "state": "speech_end"}
+<- {"type": "stt", "text": "So, in my final year project we had some API stuff that was kind of slow, and I think maybe we used caching and stuff to make it better
+<- {"type": "question", "id": "Q2", "text": "You mentioned handling retries. How would you design an idempotency key system to prevent double charging if a request
+<- {"type": "tts_start", "sr": 24000}
+   latency answer-end -> tts_start: 1562 ms
+<- {"type": "tts_end"}
+-> answering Q2 with sample_answer_strong_16k.wav
+<- {"type": "reaction", "mood": "thinking", "nod": false}
+<- {"type": "vad", "state": "speech_start"}
+<- {"type": "vad", "state": "speech_end"}
+<- {"type": "vad", "state": "speech_start"}
+<- {"type": "stt", "text": "In my internship at a logistics startup, our order tracking API was taking 900 milliseconds per request, and I was asked to bring it un
+<- {"type": "question", "id": "Q3", "text": "Can you share an example from your projects where you had to handle an incident or system failure? How would you appro
+<- {"type": "tts_start", "sr": 24000}
+   latency answer-end -> tts_start: 2094 ms
+<- {"type": "tts_end"}
+-> answering Q3 with sample_answer_generic_16k.wav
+<- {"type": "reaction", "mood": "thinking", "nod": false}
+<- {"type": "vad", "state": "speech_start"}
+<- {"type": "vad", "state": "speech_end"}
+<- {"type": "stt", "text": "I am a very passionate and hard working developer with strong problem solving skills. I believe in writing clean, scalable and robust c
+<- {"type": "question", "id": "Q4", "text": "You mentioned optimizing database calls with caching. How would you design your unit and integration tests for this if
+<- {"type": "tts_start", "sr": 24000}
+   latency answer-end -> tts_start: 1610 ms
+<- {"type": "tts_end"}
+-> answering Q4 with sample_answer_team_16k.wav
+<- {"type": "reaction", "mood": "thinking", "nod": false}
+<- {"type": "vad", "state": "speech_start"}
+<- {"type": "vad", "state": "speech_end"}
+<- {"type": "stt", "text": "In our college project we built a food delivery API for a hackathon. We used Express for the roots and we stored orders in MongoDB. We 
+<- {"type": "question", "id": "Q5", "text": "You said you follow best practices. Describe a specific situation where you wrote unit tests or reviewed code under a 
+<- {"type": "tts_start", "sr": 24000}
+   latency answer-end -> tts_start: 1610 ms
+<- {"type": "tts_end"}
+<- {"type": "reaction", "mood": "thinking", "nod": false}
+<- {"type": "tts_start", "sr": 24000}
+<- {"type": "tts_end"}
+<- {"type": "report", "url": "http://10.1.187.143:8765/report/s_f9cd54fe76a0", "session": "s_f9cd54fe76a0"}
+
+OK: 5 question(s), 6 tts span(s), 4 answers; report: http://10.1.187.143:8765/report/s_f9cd54fe76a0
+latency ms: median=1610 min=1562 max=2094
+report: band=not yet ready fixes=2 per_question=4 stop=cancelled
+quote check: 2/2 fixes grounded

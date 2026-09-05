@@ -183,6 +183,12 @@ Dedicated VRAM with everything loaded = **13.8 GB**, of which ≈ 2.5 GB is the 
   - Report (`/report/s_931cbb94a9db`): band **borderline**, mover "Replace all vague references to 'stuff' or 'caching' with specific technology names… quantify". Top fixes quote **"used caching and stuff to make it better" (A1)** and **"I think maybe" (A1)** — both literal transcript spans; the report gate dropped one ungrounded bullet (`top_fixes[2] not_validated`), exactly the evidence lock the blueprint asks for. Per-question STAR strips S/A present, T/R absent for all four; empty must-have rows C2–C8 listed; delivery WPM 172, 8 hedges.
   - Found by the e2e ordering check: viseme `t_ms` restarted at 0 inside a TTS span → fixed in `audio/tts.py` (monotonic clamp across chunks).
 - Gemini TTS backend added as an **opt-in** (`--tts-backend gemini`, `TTS_BACKEND=gemini`, `GEMINI_API_KEY` from `E:\Enigma for Masai\.env`); default stays Kokoro (local). Model ids per Google docs today: `gemini-3.1-flash-tts-preview` (default), `gemini-2.5-pro-preview-tts`, `gemini-2.5-flash-preview-tts` — there is no "3.1 pro" TTS model. Uses the RMS mouth fallback (§6.3). UNVERIFIED end-to-end (needs a run with the key).
+- **e2e round 3** (`docs/logs/phase2-e2e.log`, session `s_69fa1a39782a`, Stage C in the background): still **9.5–12.5 s** answer-end → tts_start. Root cause was not Stage C's duration but LM Studio's `--parallel 1` queue: the analysis request was fired first, so the ~150-token question request waited behind ~600 tokens of analysis. Fix in `server.py`: request Stage B first, start Stage C right after it returns (logged in DECISIONS).
+- **e2e round 4** (`docs/logs/phase2-e2e-r4.log`, session `s_f9cd54fe76a0`): **1,562 / 2,094 / 1,610 / 1,610 ms** (median 1,610 ms) answer-end → tts_start; STT 239–309 ms per 17–21 s answer; Stage B 1.1–1.6 s; 5 questions, ordering check ✅, report `not yet ready`, **2/2 fix quotes grounded** ✅.
+- **`tools/bench_latency.py`** (Phase 6.1, 10 turns over 2 rounds, emulator idling on the same GPU): **p50 1,836 ms · p95 2,859 ms** (min 1,359, max 2,859) — see the bench block at the end of this file (`docs/logs/bench_latency.json`). Target was p50 ≤ 1.8 s: met within 40 ms with the emulator running; UNVERIFIED without it.
+- **`tools/swap_jd_demo.py`** (`docs/logs/phase2-swapjd.log`): JD-A (fintech) vs JD-B (edtech), same title "Backend Developer (Node.js)": different competencies (Payment System Fundamentals, Data Integrity… vs Node.js Fundamentals, Database…), **0 identical questions**, every why-trace quote a literal JD substring (C1 acceptance ✅).
+
+**Acceptance (Phase 2):** pytest 291 ✅ · e2e_client 4 questions green with event-order check ✅ · latency p50 1.84 s (bench) ✅ · JD swap 0 overlap ✅ · report quotes grounded ✅.
 
 ---
 
@@ -193,3 +199,57 @@ Dedicated VRAM with everything loaded = **13.8 GB**, of which ≈ 2.5 GB is the 
 - Review deviations from the master prompt (logged in DECISIONS): clients get SELECT+DELETE only on server-owned tables; `sessions.jd_id` ON DELETE RESTRICT; guest claim keyed strictly on a ≥ 32-char device secret.
 - Server side: `store/sync.py` outbox worker (jds → sessions → turns → reports → clips, deterministic uuid5 ids, service-role key, `SUPABASE_MODE=cloud|selfhosted|off`), wired into `server.py` + `/health.sync`. `server/env.example` lists the keys (`.env*` names are write-protected for Claude, hence the name). **Oikantik must paste `SUPABASE_SERVICE_ROLE_KEY` into `server/.env`** for the sync to run; sync end-to-end is UNVERIFIED until then.
 - FlutterFlow side (schema refresh, auth guest toggle): pending Phase 4 push.
+
+---
+
+## Phase 4 — FlutterFlow app via `flutterflow ai` (DSL side; build/deploy lines are appended by the second session)
+
+- Workspace `app/ff-workspace` (SDK 0.0.40+2) bound to branch `interview-cracker` → branch project id **`1cEe3vhxwe7pRqSEeiKi`** (the trunk id `enigma-solved-ctlkqt` is refused by `flutterflow ai run/validate` on a branch). Project: https://app.flutterflow.io/project/enigma-solved-ctlkqt
+- Greenfield DSL `dsl/interview_cracker.dart` (theme, 7 pub deps, 31 app-state fields, 7 custom widgets, 4 custom actions, 6 pages) pushed as commit `UR52GeNvF2PYEVV7amz4`; `flutterflow ai resources` lists exactly PasteJD (initial, `/`), Pair, Prep, Room, Report, History — template HomePage removed (`edit_followup.dart`, commit `0ReCzamEzV86kA8nbcJL`).
+- **Dependency conflict found and fixed:** every `flutter_soloud` 3.x needs `path_provider ^2.1.5`; FlutterFlow pins 2.1.4 and its code generator *drops* `dependency_overrides` (override present in the project after `addDependencyOverride`, absent from `generated_code/pubspec.yaml`) → playback rewritten on **`flutter_pcm_sound 3.3.3`** (zero deps; viseme clock = frames fed − frames queued from the feed callback), `edit_audio_backend.dart`, commit **`wOniwCZcBNYmTriVWrBp`**. `flutter pub get` on the export then resolves (after `app/tools/patch_native.py` relaxes FlutterFlow's `intl 0.20.2` pin to `^0.20.2` for local Flutter 3.47).
+- `app/tools/patch_native.py` re-applies after every export: RECORD_AUDIO / CAMERA / MODIFY_AUDIO_SETTINGS / ACCESS_NETWORK_STATE, `usesCleartextTraffic="true"`, camera feature not required, minSdk 24, iOS mic/camera/local-network strings + ATS local networking. Verified on the 15:20 export (manifest lines 4–13, build.gradle line 58, Info.plist 2 keys).
+- **Add-on A (Lottie):** ten cues sourced via the LottieFiles public GraphQL API (MCP endpoint 404), all under the Lottie Simple License, 4.8–57 KB each, recoloured to the palette (`app/tools/lottie_fetch.py` → `app/assets/lottie/*.json`, `docs/ASSETS.md`). Embedded gzip+base64 (231 KB → 36 KB) in the `StateCue` custom widget (`app/tools/gen_state_cue.py` → `dsl/state_cue_code.dart`), rendered with `lottie 3.3.3` `Lottie.memory`, reduced-motion aware, one cue per page (`dsl/edit_lottie_cues.dart`: Room rule speaking|listening|thinking|countdown|idle, Pair rule qr|connected|offline, Prep thinking, Report success once, History empty). Validated (dry run OK) and pushed as commit **`wKeHnpBi229MxXnJHhkF`**; `generated_code/pubspec.yaml` shows `lottie: 3.3.3`, `lib/custom_code/widgets/state_cue.dart` generated.
+- **Compile check of the generated tree** (scratch copy of `generated_code/` + `patch_native.py`, `flutter analyze`): the first pass found 5 errors in `voice_link_host.dart` — the *published* flutter_pcm_sound 3.3.3 has an older `setup()` than its GitHub master (no Android usage/content/stream params) and its `IosAudioCategory` enum collides with `record`'s; a second pass caught my `Uint8List pcm` parameter shadowing the `pcm` import prefix. The second session flagged that `StateCue` used `dart:io` gzip, which dart2js (FlutterFlow Web Publishing) cannot compile → `package:archive` `GZipDecoder` + explicit `archive 4.2.0` dep. All three fixed in `edit_fix_web.dart`, commits `bhyAZ41u5pT9Em8dvlRp` → **`in6N3VtqTcKn8ALKDye6`**; final analyze/web-build result recorded on the next line. Screenshots of each placement (`docs/screenshots/lottie-*.png`) are UNVERIFIED until the Chrome extension or the emulator walk-through captures them.
+- Still needed in the FlutterFlow **UI** (no DSL surface): Room page → "Disable Android Back Button"; Supabase integration → paste URL + anon key and refresh schema; Authentication → allow guest/anonymous; optionally upload `app/assets/lottie/*.json` as assets to switch `StateCue` to the native Lottie widget.
+- Chrome verification of Test Mode: **UNVERIFIED** — the Claude-in-Chrome extension reported "not connected" on every attempt this session (reconnect the extension and re-run 6.4).
+
+---
+
+## Phase 5 — The interviewer on screen
+
+- 5A `InterviewerAvatar` CustomPaint (ten mouth paths per §6.1, mood brows, blink, listening tilt, nod) shipped in the first DSL push; mouth is driven by `VoiceLink.mouth` at 40 Hz from viseme events against the playback clock (now `flutter_pcm_sound` fed-minus-queued frames). 5B Rive: no `.riv` exists → not started (fallback stays).
+- Acceptance GIF (emulator `adb shell screenrecord` of a Kokoro sentence): **pending the APK install by the second session** (see its Phase 6 lines below).
+
+---
+
+## Phase 6 — Testing (automated part; emulator/phone/Chrome lines are appended by the second session)
+
+- 6.1 `uv run pytest` 291 ✅ · `tools/e2e_client.py --questions 4` ✅ (round 4 above) · `tools/bench_latency.py` 10 turns p50 1.84 s / p95 2.86 s ✅ (bench block below).
+- 6.2 AVD `pixel8` created (`system-images;android-35;google_apis;x86_64`, `hw.audioInput=yes`, GPU host), booted as `emulator-5554` (`sys.boot_completed=1`); server runs with `--emulator` (pair line `10.0.2.2:8765:<token>`).
+- 6.4 Chrome: UNVERIFIED (extension disconnected all session).
+- 6.5 `docs/TESTPLAN.md` written (C1–C4 + offline checklist, numbers table).
+
+---
+
+## Phase 7 — Demo hardening
+
+- `server/run_demo.bat` (HF offline env, `lms daemon up` → `lms server start --bind 127.0.0.1` → `lms load qwen/qwen3.5-9b --gpu max --context-length 8192 --parallel 1 --identifier interviewer` → `selftest.py` gate → `server.py --host 0.0.0.0 --emulator`, opens `/pair`) and `server/firewall.ps1` (inbound TCP 8765 for the venv python, Private+Public) written. **Oikantik runs `firewall.ps1` once as Administrator** and applies the manual items in `docs/DEMO.md` (sysmem fallback policy, hotspot power saving, sleep, hotspot bootstrap rehearsal ×3).
+- `docs/DEMO.md`: 4-minute script (JD-A `jd_fintech.txt` → vague answer → follow-up quoting the candidate → strong answer → report with tap-to-replay → JD-B swap on the browser client), fallback ladder (`adb reverse` → phone hotspot → browser test page → travel router), emulator pairing line, numbers to say out loud.
+- Full offline rehearsal + `demo-rc1` tag: pending the APK (second session).
+
+<!-- bench:start -->
+| bench_latency.py (2026-09-05 15:06, realistic) | turns 10 in 2 rounds | **p50 1836 ms** | **p95 2859 ms** | min 1359 ms | max 2859 ms |
+<!-- bench:end -->
+
+---
+
+## Phase 4.5 / 6.2 / 7 - Export, build, emulator run, deploy (second session, enigma-for-masai-71)
+
+**Plan** (2026-09-05, started 15:07 IST while the first session finished the audio-backend swap and Add-on A on the FlutterFlow branch)
+1. Build from a private copy of the export (`app/rc1_build`, git-ignored) so the two sessions never build in the same directory; local-only fixes for Flutter 3.47.2: `intl ^0.20.2` relax (patch_native.py) and Gradle wrapper 8.12 -> 8.14.3 (Flutter's Gradle plugin refuses < 8.14).
+2. Re-export the final FlutterFlow commit (`flutterflow export-code --branch-name interview-cracker --no-parent-folder`), run `patch_native.py`, `flutter build apk --debug`.
+3. Install on `emulator-5554` (pixel8, Android 15), grant mic/camera, drive PasteJD -> Pair (`10.0.2.2:8765:<token>`) -> Prep -> Room with `adb shell input`, capture `docs/screenshots/06-*.png` and a 30 s `screenrecord` of Room while the interviewer speaks.
+4. Deploy: GitHub release `demo-rc1` with the APK (product download URL), FlutterFlow Web Publishing from `main` after the branch merge (site `enigma-solved-ctlkqt.flutterflow.app`).
+5. Fill the Acceptance blocks below with real outputs; anything not exercised is written UNVERIFIED.
+
+**Results** - pending
