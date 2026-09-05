@@ -1,0 +1,61 @@
+# --- secrets (never commit) ---
+server/.env
+app/ff-workspace/.flutterflow/.env
+**/.flutterflow/.env
+**/credentials.json
+*.pem
+*.key
+
+# --- model weights and generated data ---
+server/models/
+server/data/
+*.gguf
+*.onnx
+*.safetensors
+*.pt
+*.pth
+*.bin
+*.nemo
+
+# --- audio: keep small committed fixtures only ---
+*.wav
+!server/fixtures/*.wav
+
+# --- python ---
+**/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# --- flutter / dart / android ---
+app/export/build/
+app/export/.dart_tool/
+app/export/.flutter-plugins*
+app/export/android/.gradle/
+app/export/android/local.properties
+app/export/ios/Pods/
+app/ff-workspace/generated_code/
+app/ff-workspace/.flutterflow/cache/
+app/ff-workspace/.flutterflow/merges/
+**/.dart_tool/
+*.apk
+*.aab
+
+# --- node (root package.json is pre-existing; keep it) ---
+node_modules/
+
+# --- pre-existing leftovers at the repo root (safe to delete by hand) ---
+Enigma-Solved/
+1.0
+
+# --- os / editor ---
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+!docs/logs/*.log
+
+# --- claude code local settings ---
+.claude/settings.local.json
