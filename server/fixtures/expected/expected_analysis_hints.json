@@ -1,0 +1,417 @@
+{
+  "_notes": [
+    "Oracle for Stage C (BLUEPRINT 5.3) on four scripted answers. Stage C's input is (transcript, target competency, the question's why), so run it with each answer's `context`: the JD file, the target competency resolved through expected_rubric_hints.json (the entry of that JD whose match_keywords contain competency_match_keyword), the question text, ladder_rung and strategy, and the jd_keywords list handed to the prompt. Without that context the keyword and evidence expectations are meaningless.",
+    "Synthesise each script with Kokoro to wav_file, run STT, then Stage C. word_count is the script's whitespace token count and must NOT be asserted against the STT transcript. spoken_word_count_approx estimates what TTS actually says (digits become number words, all-caps abbreviations are spelled out, hyphen compounds are two words; the rule is verify_fixtures.spoken_word_count) and is the number to use for WPM sanity checks. approx_duration_s is spoken_word_count_approx at 155 wpm; recompute the real duration from the WAV before asserting timestamp containment.",
+    "quote_substrings, the star.*.quote_substrings, hedges_quote_substrings and overlapping_quotes_both_valid are exact substrings of the SCRIPT and each occurs exactly once in it, so a timestamp-containment test has one unambiguous span per quote. At least one quote_substrings entry must fuzzy-match (RapidFuzz partial_ratio >= 90 on normalised text) a quote the analyzer returns. Digits and abbreviations are kept out of quotes because STT may spell them out.",
+    "Under LM Studio's strict json_schema (all properties required, additionalProperties false) every property is emitted: an absent STAR part arrives as {\"present\": false, \"quote\": null, \"t\": null}. Assert `part.get(\"quote\") in (None, \"\")`, never key absence. star.action.ownership_any_of lists the acceptable values of the action's ownership field; the prompt's enum is I | we | unclear, and the quote gate may relabel it from pronoun counts.",
+    "ownership_ratio_hint counts first-person singular (I, my) versus plural (we, our) tokens in the script; we_ratio = we / (I + we); team_hiding_flag = we_ratio > 0.7 (the 5.3 heuristic) and is always a boolean. Only sample_answer_team trips it. The vague answer sits at 0.67 on purpose: it is the borderline case the threshold must NOT flag.",
+    "jd_keyword_hits_any_of and jd_keyword_missed_any_of are subsets of context.jd_keywords; every listed hit occurs as a whole word (or hyphenated phrase) in the script and every listed miss does not. Assert the analyzer's hit list contains at least one of hits_any_of and its missed list at least one of missed_any_of; when jd_keyword_hits_expected_empty is true the hit list must be empty. Keyword matching is token based: 'TTL' is deliberately not a JD keyword because it only matches jd_fintech.txt through 'se-ttl-ements'; it lives in evidence_keywords_any_of, which matches the competency's evidence, not the JD.",
+    "evidence_updates_expected constrains the target competency's cells after this answer. evidence_updates may arrive as a dict keyed by competency id (the BLUEPRINT shape) or as a list of {competency_id, evidence, level} objects; normalise both before asserting. any_level: at least one cell is at that level. max_level: no cell is above that level (none < weak < strong).",
+    "contradictions_expected_empty: these are single-turn fixtures with no prior claims, so contradictions must be [].",
+    "overlapping_quotes_both_valid (vague only): both quotes must survive the quote gate with overlapping t ranges; the gate must not reject a quote because another validated quote already covers part of the same words.",
+    "verdict_any_of, next_strategy_any_of and reaction_any_of are the acceptable sets from the enums in 5.2 / 5.3. specificity_min / specificity_max bound the 0-3 score."
+  ],
+  "answers": {
+    "vague": {
+      "script_file": "sample_answer_vague.txt",
+      "wav_file": "sample_answer_vague.wav",
+      "context": {
+        "jd": "jd_fintech.txt",
+        "competency_match_keyword": "Redis",
+        "question_id": "Q1",
+        "answer_id": "A1",
+        "question": "Tell me about a time you made an API faster. What did you change, and what happened to the latency?",
+        "ladder_rung": "applied example",
+        "strategy": "open_probe",
+        "jd_keywords": [
+          "Redis",
+          "caching",
+          "cache invalidation",
+          "rate-limit",
+          "latency",
+          "PostgreSQL",
+          "indexes"
+        ]
+      },
+      "word_count": 55,
+      "spoken_word_count_approx": 58,
+      "approx_duration_s": 22,
+      "verdict_any_of": [
+        "vague"
+      ],
+      "star": {
+        "situation": {
+          "present": true,
+          "quote_substrings": [
+            "in my final-year project"
+          ]
+        },
+        "task": {
+          "present": false
+        },
+        "action": {
+          "present": true,
+          "ownership_any_of": [
+            "we"
+          ],
+          "quote_substrings": [
+            "we used caching and stuff",
+            "optimisation on the database side"
+          ]
+        },
+        "result": {
+          "present": false
+        }
+      },
+      "specificity_max": 1,
+      "hedges_quote_substrings": [
+        "I think maybe",
+        "or something",
+        "kind of"
+      ],
+      "min_hedges": 1,
+      "ownership_ratio_hint": {
+        "I": 2,
+        "we": 4,
+        "we_ratio": 0.67,
+        "team_hiding_flag": false,
+        "note": "borderline by design: 0.67 is below the 0.7 threshold, so the flag must stay false even though the only I tokens are the hedge 'I think' and the possessive 'my'; an action-scoped ownership check still gives we"
+      },
+      "jd_keyword_hits_any_of": [
+        "caching",
+        "indexes"
+      ],
+      "jd_keyword_missed_any_of": [
+        "Redis",
+        "latency",
+        "PostgreSQL"
+      ],
+      "contradictions_expected_empty": true,
+      "evidence_updates_expected": [
+        {
+          "competency_match_keyword": "Redis",
+          "max_level": "weak"
+        }
+      ],
+      "quote_substrings": [
+        "we used caching and stuff",
+        "I think maybe"
+      ],
+      "overlapping_quotes_both_valid": [
+        "I think maybe we used caching",
+        "we used caching and stuff"
+      ],
+      "next_strategy_any_of": [
+        "dig_deeper_vague",
+        "ownership_probe",
+        "quantify_result"
+      ],
+      "reaction_any_of": [
+        "neutral",
+        "thinking"
+      ]
+    },
+    "strong": {
+      "script_file": "sample_answer_strong.txt",
+      "wav_file": "sample_answer_strong.wav",
+      "context": {
+        "jd": "jd_fintech.txt",
+        "competency_match_keyword": "Redis",
+        "question_id": "Q1",
+        "answer_id": "A1",
+        "question": "Tell me about a time you made an API faster. What did you change, and what happened to the latency?",
+        "ladder_rung": "applied example",
+        "strategy": "open_probe",
+        "jd_keywords": [
+          "Redis",
+          "caching",
+          "cache invalidation",
+          "rate-limit",
+          "latency",
+          "PostgreSQL",
+          "indexes"
+        ]
+      },
+      "word_count": 69,
+      "spoken_word_count_approx": 82,
+      "approx_duration_s": 32,
+      "verdict_any_of": [
+        "strong"
+      ],
+      "star": {
+        "situation": {
+          "present": true,
+          "quote_substrings": [
+            "internship at a logistics startup"
+          ]
+        },
+        "task": {
+          "present": true,
+          "quote_substrings": [
+            "I was asked to bring it under"
+          ]
+        },
+        "action": {
+          "present": true,
+          "ownership_any_of": [
+            "I"
+          ],
+          "quote_substrings": [
+            "I added a Redis cache",
+            "I profiled the endpoint"
+          ]
+        },
+        "result": {
+          "present": true,
+          "quote_substrings": [
+            "latency dropped to",
+            "the timeout alerts stopped"
+          ]
+        }
+      },
+      "specificity_min": 2,
+      "named_technologies": [
+        "Redis",
+        "PostgreSQL"
+      ],
+      "numbers_present": true,
+      "hedges_quote_substrings": [],
+      "max_hedges": 0,
+      "ownership_ratio_hint": {
+        "I": 4,
+        "we": 2,
+        "we_ratio": 0.33,
+        "team_hiding_flag": false
+      },
+      "jd_keyword_hits_any_of": [
+        "Redis",
+        "PostgreSQL",
+        "latency"
+      ],
+      "jd_keyword_missed_any_of": [
+        "rate-limit",
+        "cache invalidation",
+        "indexes"
+      ],
+      "evidence_keywords_any_of": [
+        "TTL",
+        "p95",
+        "cache"
+      ],
+      "contradictions_expected_empty": true,
+      "evidence_updates_expected": [
+        {
+          "competency_match_keyword": "Redis",
+          "any_level": "strong"
+        }
+      ],
+      "quote_substrings": [
+        "I added a Redis cache",
+        "I profiled the endpoint",
+        "latency dropped to"
+      ],
+      "next_strategy_any_of": [
+        "escalate",
+        "open_probe",
+        "evidence_probe"
+      ],
+      "reaction_any_of": [
+        "interested",
+        "neutral"
+      ]
+    },
+    "generic": {
+      "script_file": "sample_answer_generic.txt",
+      "wav_file": "sample_answer_generic.wav",
+      "context": {
+        "jd": "jd_fintech.txt",
+        "competency_match_keyword": "payment APIs in Node.js",
+        "question_id": "Q1",
+        "answer_id": "A1",
+        "question": "Tell me about yourself and one project you are proud of. What exactly did you build?",
+        "ladder_rung": "recall",
+        "strategy": "open_probe",
+        "jd_keywords": [
+          "Node.js",
+          "Express",
+          "REST",
+          "UPI",
+          "payment"
+        ]
+      },
+      "word_count": 45,
+      "spoken_word_count_approx": 46,
+      "approx_duration_s": 18,
+      "verdict_any_of": [
+        "generic"
+      ],
+      "star": {
+        "situation": {
+          "present": false
+        },
+        "task": {
+          "present": false
+        },
+        "action": {
+          "present": false,
+          "ownership_any_of": [
+            null,
+            "unclear"
+          ]
+        },
+        "result": {
+          "present": false
+        }
+      },
+      "specificity_max": 0,
+      "buzzwords": [
+        "passionate",
+        "hardworking",
+        "problem-solving",
+        "clean",
+        "scalable",
+        "robust",
+        "best practices",
+        "quick learner",
+        "team player",
+        "extra mile"
+      ],
+      "hedges_quote_substrings": [],
+      "max_hedges": 0,
+      "ownership_ratio_hint": {
+        "I": 4,
+        "we": 0,
+        "we_ratio": 0.0,
+        "team_hiding_flag": false,
+        "note": "first-person throughout but no concrete action, so ownership is moot"
+      },
+      "jd_keyword_hits_any_of": [],
+      "jd_keyword_hits_expected_empty": true,
+      "jd_keyword_missed_any_of": [
+        "Node.js",
+        "Express",
+        "REST",
+        "UPI",
+        "payment"
+      ],
+      "contradictions_expected_empty": true,
+      "evidence_updates_expected": [
+        {
+          "competency_match_keyword": "payment APIs in Node.js",
+          "max_level": "none"
+        }
+      ],
+      "quote_substrings": [
+        "passionate and hardworking developer",
+        "go the extra mile",
+        "team player"
+      ],
+      "next_strategy_any_of": [
+        "dig_deeper_generic",
+        "evidence_probe"
+      ],
+      "reaction_any_of": [
+        "neutral",
+        "unimpressed",
+        "thinking"
+      ]
+    },
+    "team": {
+      "script_file": "sample_answer_team.txt",
+      "wav_file": "sample_answer_team.wav",
+      "context": {
+        "jd": "jd_fintech.txt",
+        "competency_match_keyword": "Redis",
+        "question_id": "Q1",
+        "answer_id": "A1",
+        "question": "Tell me about a time you made an API faster. What did you change, and what happened to the latency?",
+        "ladder_rung": "applied example",
+        "strategy": "open_probe",
+        "jd_keywords": [
+          "Redis",
+          "caching",
+          "cache invalidation",
+          "rate-limit",
+          "latency",
+          "PostgreSQL",
+          "indexes"
+        ]
+      },
+      "word_count": 48,
+      "spoken_word_count_approx": 51,
+      "approx_duration_s": 20,
+      "verdict_any_of": [
+        "adequate",
+        "vague"
+      ],
+      "star": {
+        "situation": {
+          "present": true,
+          "quote_substrings": [
+            "In our college project we built a food-delivery API"
+          ]
+        },
+        "task": {
+          "present": false
+        },
+        "action": {
+          "present": true,
+          "ownership_any_of": [
+            "we"
+          ],
+          "quote_substrings": [
+            "we added caching",
+            "we stored orders in MongoDB"
+          ]
+        },
+        "result": {
+          "present": false
+        }
+      },
+      "specificity_min": 1,
+      "specificity_max": 2,
+      "named_technologies": [
+        "Express",
+        "MongoDB"
+      ],
+      "hedges_quote_substrings": [],
+      "max_hedges": 1,
+      "ownership_ratio_hint": {
+        "I": 0,
+        "we": 7,
+        "we_ratio": 1.0,
+        "team_hiding_flag": true,
+        "note": "the one fixture that must trip the we-ratio > 0.7 team-hiding rule: concrete nouns, no first-person singular at all"
+      },
+      "jd_keyword_hits_any_of": [
+        "caching",
+        "latency"
+      ],
+      "jd_keyword_missed_any_of": [
+        "Redis",
+        "PostgreSQL",
+        "indexes"
+      ],
+      "contradictions_expected_empty": true,
+      "evidence_updates_expected": [
+        {
+          "competency_match_keyword": "Redis",
+          "max_level": "weak"
+        }
+      ],
+      "quote_substrings": [
+        "we added caching",
+        "we stored orders in MongoDB",
+        "we all worked on the bugs together"
+      ],
+      "next_strategy_any_of": [
+        "ownership_probe",
+        "quantify_result"
+      ],
+      "reaction_any_of": [
+        "neutral",
+        "thinking"
+      ]
+    }
+  }
+}

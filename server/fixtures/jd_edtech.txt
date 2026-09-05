@@ -1,0 +1,37 @@
+Job Title: Backend Developer (Node.js)
+Company: VidyaLoop Learning Pvt. Ltd.
+Location: Pune, Maharashtra (Work from office)
+Experience: 0-2 years (2025 and 2026 graduates are encouraged to apply)
+Compensation: 5-8 LPA
+Employment Type: Full-time
+
+About VidyaLoop
+VidyaLoop is a Pune-based edtech startup that teaches board-exam and competitive-exam courses to students in Tier 2 and Tier 3 towns across Maharashtra, Madhya Pradesh and Uttar Pradesh. Over 300,000 students watch our recorded lectures and attempt our practice quizzes every week, most of them on entry-level Android phones over patchy 4G connections. We are a 25-person team and every engineer talks to students and teachers directly.
+
+What you will do
+- You will build Node.js services that serve video lectures through HLS with adaptive bitrate so that a lecture keeps playing on a 2G or slow 4G connection.
+- You will design and implement the quiz engine that stores question banks, evaluates attempts and returns scores and explanations in real time.
+- You will model course, chapter and quiz data in MongoDB and use Firebase for authentication and push notifications.
+- You will implement offline sync so that a student can download a chapter and its quizzes, attempt them without a connection, and have the results merged correctly when the phone comes back online.
+- You will optimise API payloads and image sizes for low-end Android devices with 2 GB of RAM and limited storage.
+- You will build the learning analytics pipeline that tracks watch time, quiz accuracy and drop-off points so teachers can see which concepts students struggle with.
+- You will write clear API documentation for the mobile team and help debug issues reported from student devices.
+- You will write tests with Mocha or Jest and take part in code reviews.
+
+What we are looking for
+- You have solid JavaScript fundamentals and have built at least one project on Node.js, preferably with Express.
+- You have worked with MongoDB or another document database and understand how to design schemas for read-heavy workloads.
+- You have used Firebase, whether for authentication, Firestore, Cloud Messaging or the Realtime Database.
+- You understand the basics of how video streaming works and are curious about HLS, chunking and CDN caching.
+- You can think about conflict resolution when the same quiz attempt is synced from a phone that was offline for a week.
+- You care about students in low-bandwidth environments and design for slow networks and cheap phones by default.
+
+Nice to have
+- Experience with FFmpeg or any video transcoding pipeline.
+- Familiarity with React Native or Flutter, enough to read the mobile client code.
+- Exposure to analytics tools such as Mixpanel, BigQuery or Metabase.
+
+Interview process
+A short call with the founder, a take-home assignment on designing an offline-first quiz sync API, one technical round and a final conversation with the teaching team.
+
+Notice period: Immediate joiners preferred; up to 45 days accepted.

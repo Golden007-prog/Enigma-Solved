@@ -1,0 +1,7 @@
+[vad] silero (onnx) loaded in 0.09s
+[vad] offline: 1 segment(s) in 95ms for 19.9s audio (RTF 0.0048)
+       speech 0.30s -> 17.90s
+[vad] streaming: per-chunk 0.14ms mean, 0.33ms max (chunk = 32ms audio)
+[vad] speech_start fired at 0.32s; speech_end fired at 18.66s; true end 17.90s
+[vad] end-of-turn decision latency = 756ms audio-time (rule: 700ms silence)
+[vad] RESULT: PASS

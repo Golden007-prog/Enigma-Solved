@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "flutterflow_ai": {
+      "type": "stdio",
+      "command": "C:\\dev\\flutter\\bin\\cache\\dart-sdk\\bin\\dart.exe",
+      "args": [
+        "E:\\Enigma for Masai\\app\\ff-workspace\\.flutterflow/sdk/flutterflow_ai\\mcp\\server.dill",
+        "--dir",
+        "E:\\Enigma for Masai\\app\\ff-workspace"
+      ],
+      "env": {}
+    }
+  }
+}

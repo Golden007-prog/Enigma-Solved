@@ -1,0 +1,1 @@
+So, in my final-year project we had some API stuff that was kind of slow, and I think maybe we used caching and stuff to make it better. We also did some optimisation on the database side, like indexes or something. It was mostly a team thing, so yeah, that was basically what we did.

@@ -1,0 +1,55 @@
+[project]
+name = "interview-server"
+version = "0.1.0"
+description = "Interview Cracker voice server: VAD + STT + interview brain + TTS on the laptop GPU; LLM via LM Studio."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "websockets",
+    "numpy",
+    "soundfile",
+    "rapidfuzz",
+    "praat-parselmouth",
+    "qrcode",
+    "pillow",
+    "httpx",
+    "pydantic>=2",
+    "python-dotenv",
+    "onnx-asr[hub]",
+    # 1.24.4 is the newest CUDA-12 build of onnxruntime-gpu on PyPI (>=1.27 are CUDA 13). torch is
+    # cu126, and both load a DLL named cudnn64_9.dll: they must come from the same CUDA family or the
+    # second one to load fails with "The specified procedure could not be found" (seen in selftest).
+    # The extras pull the cu12 nvidia-* runtime wheels that ort.preload_dlls() finds.
+    "onnxruntime-gpu[cuda,cudnn]==1.24.4",
+    "nvidia-cublas-cu12",
+    "nvidia-cudnn-cu12==9.*",
+    "kokoro",
+    # misaki's English G2P downloads spaCy's en_core_web_sm on first use; pin it so HF_HUB_OFFLINE runs work.
+    "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
+    "silero-vad",
+    "supabase",
+    "torch",
+    "openai",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+]
+
+[tool.uv]
+# torch: CUDA 12.6 wheels from the PyTorch index on Windows (driver 616.56 is CUDA-13 capable, cu126 is the widest-compat choice).
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu126", marker = "sys_platform == 'win32'" }]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

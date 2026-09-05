@@ -1,0 +1,5 @@
+[selftest] LLM: model 'interviewer' loaded
+[selftest] LLM quick call: 40 tok in 0.78s -> 51.5 tok/s
+[selftest] STT (CUDAExecutionProvider/fp16): 34 words in 234 ms: 'So, in my final year project, we had some API stuff that was kind of s'
+[selftest] TTS (cuda): 3.52s audio, 138 visemes in 230 ms
+[selftest] LLM 52 tok/s · VRAM 13.8 GB / 16.0 GB · 28.5s · READY

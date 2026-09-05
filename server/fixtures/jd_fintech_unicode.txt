@@ -1,0 +1,37 @@
+Job Title: Backend Developer (Node.js)
+Company: PaySwift Technologies Pvt. Ltd.
+Location: Bengaluru, Karnataka (Hybrid, 3 days a week from office)
+Experience: 0–2 years (freshers with strong projects are welcome)
+Compensation: 6-9 LPA plus ESOPs
+Employment Type: Full-time
+
+About PaySwift
+PaySwift is a Bengaluru-based payments company that processes UPI, card and net-banking transactions for over 40,000 merchants across India. Our platform settles more than 12 million transactions a month, and every one of them has to be correct to the paisa. We’re a 60-person engineering team that ships to production several times a day, and we are looking for early-career engineers who want to learn how money actually moves.
+
+What you will do
+- You will build and maintain RESTful payment APIs in Node.js that handle UPI collect and intent flows for merchant checkout.
+- “You will implement idempotency keys on every payment and refund endpoint so that a retried request never double-charges a customer.”
+- You will write PostgreSQL schemas and transactional queries for ledger entries, settlements and reconciliation reports.
+- You will use Redis to cache merchant configuration and rate-limit inbound webhooks, and you will reason about cache invalidation when limits change.
+- You will keep the p95 latency of the payment authorisation API under 150 milliseconds and investigate any regression in our Grafana dashboards.
+- You will integrate with bank and NPCI partner APIs, handle their timeouts and partial failures, and reconcile mismatched transaction states.
+- You will participate in a weekly on‑call rotation with a senior engineer and write a short post-mortem for every incident you handle.
+- You will write unit and integration tests in Jest and review pull requests from your teammates.
+
+What we are looking for
+- You have a strong grasp of JavaScript or TypeScript and have built at least one non-trivial project on Node.js with Express or Fastify.
+- You understand relational databases and can explain indexes, transactions and isolation levels in PostgreSQL.
+- You have used Redis or a similar in-memory store and can describe a caching strategy and its failure modes.
+- You understand why idempotency, retries and exactly-once semantics matter in a payment system, even if you have only read about them.
+- You are comfortable being on call and can stay calm while debugging a production issue with a teammate.
+- You care about security and are willing to learn the PCI DSS requirements for handling card data and secrets.
+
+Nice to have
+- Exposure to message queues such as Kafka or RabbitMQ for asynchronous settlement jobs.
+- Familiarity with Docker and basic CI pipelines on GitHub Actions.
+- Any prior project that touched UPI, Razorpay, PayU or a bank API.
+
+Interview process
+A 30-minute screening call, a take-home assignment on building an idempotent payment endpoint, and two technical rounds followed by a culture conversation with the engineering manager.
+
+Notice period: Immediate joiners or up to 30 days preferred.

@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Interview Cracker — browser test client</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, sans-serif; margin: 1.5rem; max-width: 980px; }
+  textarea { width: 100%; height: 140px; font: 13px/1.4 monospace; }
+  .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; margin: .5rem 0; }
+  .pill { padding: 2px 10px; border-radius: 999px; background: #888; color: #fff; font-size: 12px; }
+  .pill.on { background: #2a9d4b; }
+  #mouth { width: 120px; height: 120px; border-radius: 50%; background: #f1c27d; position: relative; }
+  #lips { position: absolute; left: 35px; top: 70px; width: 50px; height: 6px; background: #7a2e2e; border-radius: 30px; transition: none; }
+  #transcript { height: 220px; overflow: auto; border: 1px solid #999; padding: .5rem; font-size: 14px; }
+  #log { height: 160px; overflow: auto; border: 1px solid #999; padding: .5rem; font: 12px/1.35 monospace; }
+  .q { background: #eef; padding: .4rem .6rem; border-left: 4px solid #55c; margin: .3rem 0; }
+  .a { color: #333; margin: .2rem 0 .6rem 1rem; }
+  .why { font-size: 12px; color: #555; }
+  #meter { width: 200px; height: 10px; background: #ddd; }
+  #meterfill { height: 10px; width: 0; background: #2a9d4b; }
+</style>
+</head>
+<body>
+<h1>Interview Cracker — test client</h1>
+<div class="row">
+  <label>Server <input id="server" value="" size="28"></label>
+  <label>Token <input id="token" value="" size="34"></label>
+  <label>Pressure <select id="pressure"><option>warmup</option><option selected>realistic</option><option>tough</option></select></label>
+  <button id="connect">Connect &amp; start</button>
+  <button id="stop" disabled>Stop</button>
+  <span id="state" class="pill">disconnected</span>
+  <span id="listening" class="pill">mic</span>
+</div>
+<textarea id="jd" placeholder="Paste the job description here"></textarea>
+<div class="row">
+  <div id="mouth"><div id="lips"></div></div>
+  <div>
+    <div>Mood: <b id="mood">neutral</b> · Question <b id="qid">–</b> · timer <b id="timer">–</b></div>
+    <div>Mouth open: <div id="meter"><div id="meterfill"></div></div></div>
+    <div id="latency">latency: –</div>
+    <div><a id="reportlink" href="#" target="_blank" hidden>Open report</a></div>
+  </div>
+</div>
+<h3>Transcript</h3>
+<div id="transcript"></div>
+<h3>Events</h3>
+<div id="log"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const state = { ws: null, ctx: null, playHead: 0, visemes: [], ttsStartCtxTime: 0, lastTtsStart: 0, answerEnd: 0, mouthOpen: 0, worklet: null, timerEnd: 0 };
+const MOUTH_OPEN = [0, 0.05, 0.1, 0.15, 0.2, 0.3, 0.25, 0.9, 0.6, 0.7];
+
+$('server').value = location.host || '127.0.0.1:8765';
+fetch('/pair.json').then(r => r.json()).then(p => { $('token').value = p.token; }).catch(() => {});
+fetch('/../fixtures/jd_fintech.txt').catch(() => {});
+
+function log(msg) { const el = $('log'); el.textContent += msg + "\n"; el.scrollTop = el.scrollHeight; }
+function setState(s) { $('state').textContent = s; $('state').className = 'pill' + (s === 'connected' || s === 'listening' ? ' on' : ''); }
+
+// ---------------- audio out: PCM16 24 kHz → scheduled AudioBuffers ----------------
+function ensureCtx() {
+  if (!state.ctx) state.ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+  if (state.ctx.state === 'suspended') state.ctx.resume();
+  return state.ctx;
+}
+function playPcm16(buf, sr) {
+  const ctx = ensureCtx();
+  const i16 = new Int16Array(buf);
+  const ab = ctx.createBuffer(1, i16.length, sr);
+  const ch = ab.getChannelData(0);
+  for (let i = 0; i < i16.length; i++) ch[i] = i16[i] / 32768;
+  const src = ctx.createBufferSource(); src.buffer = ab; src.connect(ctx.destination);
+  const t = Math.max(ctx.currentTime + 0.02, state.playHead);
+  src.start(t); state.playHead = t + ab.duration;
+}
+// visemes are scheduled against the audio clock: t_ms is relative to tts_start's first sample
+function tickMouth() {
+  const ctx = state.ctx;
+  if (ctx && state.visemes.length) {
+    const tMs = (ctx.currentTime - state.ttsStartCtxTime) * 1000;
+    let id = null;
+    while (state.visemes.length && state.visemes[0].t_ms <= tMs) id = state.visemes.shift().id;
+    if (id !== null) { state.mouthOpen = MOUTH_OPEN[id]; $('lips').style.height = (4 + 26 * state.mouthOpen) + 'px'; $('lips').style.top = (73 - 13 * state.mouthOpen) + 'px'; $('meterfill').style.width = (state.mouthOpen * 200) + 'px'; }
+  }
+  if (state.timerEnd) { const left = Math.max(0, Math.ceil((state.timerEnd - performance.now()) / 1000)); $('timer').textContent = left + 's'; }
+  requestAnimationFrame(tickMouth);
+}
+requestAnimationFrame(tickMouth);
+
+// ---------------- audio in: mic → float32 at the OS rate → server resamples ----------------
+const workletCode = `
+class Cap extends AudioWorkletProcessor {
+  constructor(){ super(); this.buf = []; this.n = 0; }
+  process(inputs){ const ch = inputs[0][0]; if (!ch) return true;
+    this.buf.push(new Float32Array(ch)); this.n += ch.length;
+    if (this.n >= sampleRate / 50) { const out = new Float32Array(this.n); let o = 0; for (const b of this.buf){ out.set(b, o); o += b.length; }
+      this.port.postMessage(out.buffer, [out.buffer]); this.buf = []; this.n = 0; }
+    return true; }
+}
+registerProcessor('cap', Cap);`;
+
+async function startMic() {
+  const ctx = ensureCtx();
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+  const url = URL.createObjectURL(new Blob([workletCode], { type: 'application/javascript' }));
+  await ctx.audioWorklet.addModule(url);
+  const src = ctx.createMediaStreamSource(stream);
+  const node = new AudioWorkletNode(ctx, 'cap');
+  node.port.onmessage = e => { if (state.ws && state.ws.readyState === 1) state.ws.send(e.data); };
+  src.connect(node); node.connect(ctx.destination); // destination needed on some browsers to keep the graph alive (gain 0 would be cleaner)
+  state.worklet = node;
+  return ctx.sampleRate;
+}
+
+// ---------------- protocol ----------------
+$('connect').onclick = async () => {
+  const jd = $('jd').value.trim();
+  if (!jd) { alert('Paste a JD first'); return; }
+  const sr = await startMic();
+  const ws = new WebSocket(`ws://${$('server').value}/ws`);
+  ws.binaryType = 'arraybuffer';
+  state.ws = ws;
+  ws.onopen = () => {
+    setState('connected'); $('stop').disabled = false;
+    ws.send(JSON.stringify({ type: 'hello', token: $('token').value.trim(), mode: 'interview', in: { fmt: 'f32', sr: sr, ch: 1 }, out: { fmt: 'pcm16', sr: 24000 }, jd: jd, pressure: $('pressure').value }));
+  };
+  ws.onclose = () => { setState('disconnected'); $('stop').disabled = true; };
+  ws.onmessage = ev => {
+    if (ev.data instanceof ArrayBuffer) { playPcm16(ev.data, 24000); return; }
+    const m = JSON.parse(ev.data);
+    if (m.type !== 'viseme') log(JSON.stringify(m).slice(0, 220));
+    switch (m.type) {
+      case 'ready': setState('paired ' + m.session); break;
+      case 'rubric': log('competencies: ' + m.competencies.map(c => c.name).join(' · ')); break;
+      case 'vad': $('listening').className = 'pill' + (m.state === 'speech_start' ? ' on' : ''); if (m.state === 'speech_end') { state.answerEnd = performance.now(); state.timerEnd = 0; } break;
+      case 'stt': { const d = document.createElement('div'); d.className = 'a'; d.textContent = m.text; $('transcript').appendChild(d); break; }
+      case 'question': { $('qid').textContent = m.id; const d = document.createElement('div'); d.className = 'q'; d.innerHTML = `<b>${m.id}</b> ${m.text}<div class="why">why: ${m.why.competency_id} · ${m.why.strategy} · ${m.why.ladder_rung} · “${m.why.jd_quote}”${m.why.triggered_by ? ' · triggered by “' + m.why.triggered_by.quote + '”' : ''}</div>`; $('transcript').appendChild(d); $('transcript').scrollTop = 1e9; if (m.time_limit_s) state.pendingLimit = m.time_limit_s; break; }
+      case 'reaction': $('mood').textContent = m.mood + (m.nod ? ' (nod)' : ''); break;
+      case 'tts_start': { const ctx = ensureCtx(); state.playHead = Math.max(state.playHead, ctx.currentTime + 0.05); state.ttsStartCtxTime = state.playHead; state.visemes = []; if (state.answerEnd) { $('latency').textContent = 'latency (answer end → tts_start): ' + Math.round(performance.now() - state.answerEnd) + ' ms'; state.answerEnd = 0; } break; }
+      case 'viseme': state.visemes.push(m); break;
+      case 'tts_end': { if (state.pendingLimit) { const remaining = (state.playHead - state.ctx.currentTime) * 1000; state.timerEnd = performance.now() + remaining + state.pendingLimit * 1000; state.pendingLimit = 0; } setState('listening'); break; }
+      case 'interrupt': state.playHead = 0; state.visemes = []; state.ctx.close().then(() => { state.ctx = null; }); log('INTERRUPT: playback flushed'); break;
+      case 'report': $('reportlink').href = m.url + '/view'; $('reportlink').hidden = false; setState('report ready'); break;
+      case 'error': log('ERROR ' + m.code + ': ' + m.message); break;
+    }
+  };
+};
+$('stop').onclick = () => { if (state.ws) state.ws.send(JSON.stringify({ type: 'cancel' })); };
+</script>
+</body>
+</html>

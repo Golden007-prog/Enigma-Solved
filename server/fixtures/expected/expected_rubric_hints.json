@@ -1,0 +1,458 @@
+{
+  "_notes": [
+    "Provenance oracle for Stage A (BLUEPRINT 5.1). Every jd_quote, alt_quote and other_grounded_sentence is a verbatim sentence of the named JD file (UTF-8, LF, no BOM). jd_quote_offset is [start, end) into that file's text: jd[start:end] == jd_quote, and the sentence occurs exactly once. Offsets are computed in code after the substring match (brain/rubric.py maps the normalised match back to raw offsets); never ask the model for them.",
+    "gate_norm is the normalisation the gate must apply to BOTH the quote and the JD: unicodedata.normalize('NFKC', s), then translate every key of gate_norm.translate to its value, then collapse whitespace runs to one space, strip, lower-case. This deliberately extends the BLUEPRINT 5.1 sketch (whitespace + lower only): real pasted JDs carry U+2019 apostrophes, U+2013 en dashes, U+2011 hyphens and U+00A0 spaces while the model emits ASCII, and jd_fintech_unicode.txt proves the plain sketch silently drops such quotes (unicode_variants.must_fail_under_plain_norm). Record the deviation in docs/DECISIONS.md.",
+    "Degenerate quotes: the sketch's `norm(q) in jd_n` accepts '' (always True), 'you', '- ' and 'Node.js' as grounded. The gate must additionally require len(gate_norm(q).split()) >= min_quote_words. min_quote_words is 3, not higher, because the BLUEPRINT 5.2 example why-trace quotes 'optimise API latency' (3 words) and that must stay legal. degenerate_quotes_must_be_rejected are quotes that ARE plain substrings of the JD and must still be rejected.",
+    "Matching a rubric competency to an oracle entry: competency names are free text, so match on quotes. Take the competency's jd_quotes in order. A quote q matches an entry when, after gate_norm and stripping a leading bullet marker ('- ', '* ', '1.') and trailing punctuation, len(q.split()) >= min_match_words and q is a substring of the entry's jd_quote or of one of its alt_quotes (or contains one of them). The first quote that matches any entry decides; a competency matches at most one entry and an entry may be matched by more than one competency. fragment_examples_that_match are grounded fragments a 9B model actually returns (leading 'You will' dropped, bullet prefix kept, trailing period dropped) and must match their entry. Keyword shortcut: every quote of an entry contains one of its match_keywords and no keyword of one entry occurs in another entry's quotes (verify_fixtures.py enforces both), so `any(k in gate_norm(q) for k in match_keywords)` is an equivalent lookup.",
+    "Assert that at least min_entries_matched entries are matched by the rubric, not all of them: a correct 5-8 competency rubric can legitimately merge or omit entries. type and priority on entries are advisory; on the rubric as a whole assert only expected_mix (at least behavioral_count_min competencies typed behavioral, i.e. behavioral fraction >= behavioral_min).",
+    "domain_terms: at least min_domain_terms_hit of them must appear in the rubric JSON or in the first three questions; every domain_term is absent from the other JD (that half is what verify_fixtures.py enforces, and it is what makes the swap-the-JD difference visible).",
+    "paraphrase_that_must_be_rejected are near-paraphrases of real JD sentences; validate_rubric must drop a competency whose only quotes are these, and with three such competencies needs_reask() must be True.",
+    "shared_title and shared_seniority are identical across both JDs by design: the only thing that should make the two rubrics differ is the JD body."
+  ],
+  "gate_norm": {
+    "steps": [
+      "unicodedata.normalize('NFKC', s)",
+      "s.translate(translate)",
+      "re.sub(r'\\s+', ' ', s).strip().lower()"
+    ],
+    "translate": {
+      "‘": "'",
+      "’": "'",
+      "‚": "'",
+      "‛": "'",
+      "′": "'",
+      "“": "\"",
+      "”": "\"",
+      "„": "\"",
+      "‟": "\"",
+      "″": "\"",
+      "‐": "-",
+      "‑": "-",
+      "‒": "-",
+      "–": "-",
+      "—": "-",
+      "―": "-",
+      "−": "-",
+      " ": " ",
+      " ": " ",
+      " ": " ",
+      "…": "..."
+    }
+  },
+  "min_quote_words": 3,
+  "min_match_words": 6,
+  "min_entries_matched": 4,
+  "shared_title": "Backend Developer (Node.js)",
+  "shared_seniority": "fresher",
+  "shared_seniority_alt": [
+    "fresher",
+    "junior"
+  ],
+  "jds": {
+    "jd_fintech.txt": {
+      "company": "PaySwift Technologies Pvt. Ltd.",
+      "domain": "fintech",
+      "domain_terms": [
+        "UPI",
+        "idempotency",
+        "PCI DSS",
+        "PostgreSQL",
+        "Redis",
+        "on-call",
+        "settlement",
+        "NPCI"
+      ],
+      "min_domain_terms_hit": 4,
+      "min_competencies": 5,
+      "max_competencies": 8,
+      "expected_mix": {
+        "behavioral_min": 0.1,
+        "behavioral_count_min": 1
+      },
+      "competencies": [
+        {
+          "name": "Payment API development in Node.js (UPI)",
+          "type": "technical",
+          "priority": "must_have",
+          "match_keywords": [
+            "UPI collect",
+            "payment APIs in Node.js",
+            "Express or Fastify"
+          ],
+          "jd_quote": "You will build and maintain RESTful payment APIs in Node.js that handle UPI collect and intent flows for merchant checkout.",
+          "jd_quote_offset": [
+            739,
+            862
+          ],
+          "alt_quotes": [
+            "You have a strong grasp of JavaScript or TypeScript and have built at least one non-trivial project on Node.js with Express or Fastify."
+          ],
+          "fragment_examples_that_match": [
+            "build and maintain RESTful payment APIs in Node.js that handle UPI collect and intent flows",
+            "- You will build and maintain RESTful payment APIs in Node.js that handle UPI collect and intent flows for merchant checkout."
+          ]
+        },
+        {
+          "name": "Idempotency and retry safety",
+          "type": "technical",
+          "priority": "must_have",
+          "match_keywords": [
+            "idempotency"
+          ],
+          "jd_quote": "You will implement idempotency keys on every payment and refund endpoint so that a retried request never double-charges a customer.",
+          "jd_quote_offset": [
+            865,
+            996
+          ],
+          "alt_quotes": [
+            "You understand why idempotency, retries and exactly-once semantics matter in a payment system, even if you have only read about them."
+          ],
+          "fragment_examples_that_match": [
+            "- You will implement idempotency keys on every payment and refund endpoint",
+            "implement idempotency keys on every payment and refund endpoint so that a retried request never double-charges a customer"
+          ]
+        },
+        {
+          "name": "PostgreSQL schemas and transactions",
+          "type": "technical",
+          "priority": "must_have",
+          "match_keywords": [
+            "PostgreSQL"
+          ],
+          "jd_quote": "You understand relational databases and can explain indexes, transactions and isolation levels in PostgreSQL.",
+          "jd_quote_offset": [
+            1958,
+            2067
+          ],
+          "alt_quotes": [
+            "You will write PostgreSQL schemas and transactional queries for ledger entries, settlements and reconciliation reports."
+          ],
+          "fragment_examples_that_match": [
+            "write PostgreSQL schemas and transactional queries for ledger entries, settlements and reconciliation reports"
+          ]
+        },
+        {
+          "name": "Redis caching and rate limiting",
+          "type": "technical",
+          "priority": "must_have",
+          "match_keywords": [
+            "Redis"
+          ],
+          "jd_quote": "You have used Redis or a similar in-memory store and can describe a caching strategy and its failure modes.",
+          "jd_quote_offset": [
+            2070,
+            2177
+          ],
+          "alt_quotes": [
+            "You will use Redis to cache merchant configuration and rate-limit inbound webhooks, and you will reason about cache invalidation when limits change."
+          ],
+          "fragment_examples_that_match": [
+            "You will use Redis to cache merchant configuration and rate-limit inbound webhooks"
+          ]
+        },
+        {
+          "name": "On-call incident handling",
+          "type": "behavioral",
+          "priority": "must_have",
+          "match_keywords": [
+            "on-call",
+            "on call"
+          ],
+          "jd_quote": "You will participate in a weekly on-call rotation with a senior engineer and write a short post-mortem for every incident you handle.",
+          "jd_quote_offset": [
+            1561,
+            1694
+          ],
+          "alt_quotes": [
+            "You are comfortable being on call and can stay calm while debugging a production issue with a teammate."
+          ],
+          "fragment_examples_that_match": [
+            "participate in a weekly on-call rotation with a senior engineer and write a short post-mortem for every incident you handle"
+          ]
+        },
+        {
+          "name": "API latency and observability",
+          "type": "technical",
+          "priority": "must_have",
+          "match_keywords": [
+            "p95 latency",
+            "Grafana"
+          ],
+          "jd_quote": "You will keep the p95 latency of the payment authorisation API under 150 milliseconds and investigate any regression in our Grafana dashboards.",
+          "jd_quote_offset": [
+            1272,
+            1415
+          ],
+          "alt_quotes": [],
+          "fragment_examples_that_match": [
+            "keep the p95 latency of the payment authorisation API under 150 milliseconds"
+          ]
+        },
+        {
+          "name": "Async settlement with message queues",
+          "type": "technical",
+          "priority": "nice_to_have",
+          "match_keywords": [
+            "Kafka",
+            "RabbitMQ"
+          ],
+          "jd_quote": "Exposure to message queues such as Kafka or RabbitMQ for asynchronous settlement jobs.",
+          "jd_quote_offset": [
+            2548,
+            2634
+          ],
+          "alt_quotes": [],
+          "fragment_examples_that_match": [
+            "message queues such as Kafka or RabbitMQ for asynchronous settlement jobs"
+          ]
+        }
+      ],
+      "other_grounded_sentences": [
+        "You will integrate with bank and NPCI partner APIs, handle their timeouts and partial failures, and reconcile mismatched transaction states.",
+        "You care about security and are willing to learn the PCI DSS requirements for handling card data and secrets.",
+        "You will write unit and integration tests in Jest and review pull requests from your teammates."
+      ],
+      "paraphrase_that_must_be_rejected": [
+        "Build REST APIs for UPI payments using Node.js",
+        "Make sure retried requests do not charge the customer twice",
+        "Know PostgreSQL transactions and indexing"
+      ],
+      "degenerate_quotes_must_be_rejected": [
+        "",
+        "   ",
+        "\n\t",
+        "a",
+        "you",
+        "- ",
+        ".",
+        "Node.js",
+        "in Node.js"
+      ]
+    },
+    "jd_edtech.txt": {
+      "company": "VidyaLoop Learning Pvt. Ltd.",
+      "domain": "edtech",
+      "domain_terms": [
+        "HLS",
+        "quiz",
+        "MongoDB",
+        "Firebase",
+        "offline",
+        "Android",
+        "watch time",
+        "lecture"
+      ],
+      "min_domain_terms_hit": 4,
+      "min_competencies": 5,
+      "max_competencies": 8,
+      "expected_mix": {
+        "behavioral_min": 0.1,
+        "behavioral_count_min": 1
+      },
+      "competencies": [
+        {
+          "name": "Video streaming backend (HLS, adaptive bitrate)",
+          "type": "technical",
+          "priority": "must_have",
+          "match_keywords": [
+            "HLS"
+          ],
+          "jd_quote": "You will build Node.js services that serve video lectures through HLS with adaptive bitrate so that a lecture keeps playing on a 2G or slow 4G connection.",
+          "jd_quote_offset": [
+            719,
+            873
+          ],
+          "alt_quotes": [
+            "You understand the basics of how video streaming works and are curious about HLS, chunking and CDN caching."
+          ],
+          "fragment_examples_that_match": [
+            "serve video lectures through HLS with adaptive bitrate",
+            "- You will build Node.js services that serve video lectures through HLS with adaptive bitrate so that a lecture keeps playing on a 2G or slow 4G connection."
+          ]
+        },
+        {
+          "name": "Quiz engine design",
+          "type": "technical",
+          "priority": "must_have",
+          "match_keywords": [
+            "quiz engine"
+          ],
+          "jd_quote": "You will design and implement the quiz engine that stores question banks, evaluates attempts and returns scores and explanations in real time.",
+          "jd_quote_offset": [
+            876,
+            1018
+          ],
+          "alt_quotes": [],
+          "fragment_examples_that_match": [
+            "design and implement the quiz engine that stores question banks, evaluates attempts and returns scores"
+          ]
+        },
+        {
+          "name": "MongoDB and Firebase data layer",
+          "type": "technical",
+          "priority": "must_have",
+          "match_keywords": [
+            "MongoDB",
+            "Firebase"
+          ],
+          "jd_quote": "You will model course, chapter and quiz data in MongoDB and use Firebase for authentication and push notifications.",
+          "jd_quote_offset": [
+            1021,
+            1136
+          ],
+          "alt_quotes": [
+            "You have worked with MongoDB or another document database and understand how to design schemas for read-heavy workloads.",
+            "You have used Firebase, whether for authentication, Firestore, Cloud Messaging or the Realtime Database."
+          ],
+          "fragment_examples_that_match": [
+            "model course, chapter and quiz data in MongoDB and use Firebase for authentication"
+          ]
+        },
+        {
+          "name": "Offline sync and conflict resolution",
+          "type": "technical",
+          "priority": "must_have",
+          "match_keywords": [
+            "offline"
+          ],
+          "jd_quote": "You will implement offline sync so that a student can download a chapter and its quizzes, attempt them without a connection, and have the results merged correctly when the phone comes back online.",
+          "jd_quote_offset": [
+            1139,
+            1335
+          ],
+          "alt_quotes": [
+            "You can think about conflict resolution when the same quiz attempt is synced from a phone that was offline for a week."
+          ],
+          "fragment_examples_that_match": [
+            "implement offline sync so that a student can download a chapter and its quizzes"
+          ]
+        },
+        {
+          "name": "Low-end Android and low-bandwidth performance",
+          "type": "technical",
+          "priority": "must_have",
+          "match_keywords": [
+            "low-end Android",
+            "cheap phones"
+          ],
+          "jd_quote": "You will optimise API payloads and image sizes for low-end Android devices with 2 GB of RAM and limited storage.",
+          "jd_quote_offset": [
+            1338,
+            1450
+          ],
+          "alt_quotes": [
+            "You care about students in low-bandwidth environments and design for slow networks and cheap phones by default."
+          ],
+          "fragment_examples_that_match": [
+            "optimise API payloads and image sizes for low-end Android devices"
+          ]
+        },
+        {
+          "name": "Student-facing communication and documentation",
+          "type": "behavioral",
+          "priority": "must_have",
+          "match_keywords": [
+            "API documentation",
+            "student devices",
+            "talks to students"
+          ],
+          "jd_quote": "You will write clear API documentation for the mobile team and help debug issues reported from student devices.",
+          "jd_quote_offset": [
+            1619,
+            1730
+          ],
+          "alt_quotes": [
+            "We are a 25-person team and every engineer talks to students and teachers directly."
+          ],
+          "fragment_examples_that_match": [
+            "write clear API documentation for the mobile team and help debug issues reported from student devices"
+          ]
+        },
+        {
+          "name": "Video transcoding",
+          "type": "technical",
+          "priority": "nice_to_have",
+          "match_keywords": [
+            "FFmpeg",
+            "transcoding"
+          ],
+          "jd_quote": "Experience with FFmpeg or any video transcoding pipeline.",
+          "jd_quote_offset": [
+            2534,
+            2591
+          ],
+          "alt_quotes": [],
+          "fragment_examples_that_match": [
+            "Experience with FFmpeg or any video transcoding pipeline"
+          ]
+        }
+      ],
+      "other_grounded_sentences": [
+        "You will build the learning analytics pipeline that tracks watch time, quiz accuracy and drop-off points so teachers can see which concepts students struggle with.",
+        "You have solid JavaScript fundamentals and have built at least one project on Node.js, preferably with Express.",
+        "You will write tests with Mocha or Jest and take part in code reviews."
+      ],
+      "paraphrase_that_must_be_rejected": [
+        "Serve lectures over HLS that work on slow connections",
+        "Build a quiz system that scores attempts live",
+        "Let students download chapters and sync results later"
+      ],
+      "degenerate_quotes_must_be_rejected": [
+        "",
+        "   ",
+        "\n\t",
+        "a",
+        "you",
+        "- ",
+        ".",
+        "Node.js",
+        "in MongoDB"
+      ]
+    }
+  },
+  "unicode_variants": {
+    "jd_fintech_unicode.txt": {
+      "unicode_variant_of": "jd_fintech.txt",
+      "_note": "Byte-identical to jd_fintech.txt except for the substitutions below, which are what LinkedIn/Notion/Word pastes carry. gate_norm(variant) with the wrapping quotation marks removed equals gate_norm(original). The model quotes in ASCII; every ascii_quotes_must_still_ground entry must survive validate_rubric against this file, and every must_fail_under_plain_norm entry is dropped by the plain BLUEPRINT 5.1 sketch (that is the bug the fold fixes).",
+      "substitutions": [
+        {
+          "ascii": "Experience: 0-2 years",
+          "unicode": "Experience: 0–2 years",
+          "what": "U+2013 en dash"
+        },
+        {
+          "ascii": "We're a 60-person engineering team",
+          "unicode": "We’re a 60-person engineering team",
+          "what": "U+2019 right single quotation mark as apostrophe"
+        },
+        {
+          "ascii": "a weekly on-call rotation",
+          "unicode": "a weekly on‑call rotation",
+          "what": "U+2011 non-breaking hyphen"
+        },
+        {
+          "ascii": "under 150 milliseconds",
+          "unicode": "under 150 milliseconds",
+          "what": "U+00A0 no-break space (the plain sketch already folds this one via \\s)"
+        },
+        {
+          "ascii": "- You will implement idempotency keys on every payment and refund endpoint so that a retried request never double-charges a customer.",
+          "unicode": "- “You will implement idempotency keys on every payment and refund endpoint so that a retried request never double-charges a customer.”",
+          "what": "U+201C/U+201D wrapping quotation marks"
+        }
+      ],
+      "ascii_quotes_must_still_ground": [
+        "Experience: 0-2 years (freshers with strong projects are welcome)",
+        "We're a 60-person engineering team that ships to production several times a day, and we are looking for early-career engineers who want to learn how money actually moves.",
+        "You will participate in a weekly on-call rotation with a senior engineer and write a short post-mortem for every incident you handle.",
+        "You will keep the p95 latency of the payment authorisation API under 150 milliseconds and investigate any regression in our Grafana dashboards.",
+        "You will implement idempotency keys on every payment and refund endpoint so that a retried request never double-charges a customer."
+      ],
+      "must_fail_under_plain_norm": [
+        "Experience: 0-2 years (freshers with strong projects are welcome)",
+        "We're a 60-person engineering team that ships to production several times a day, and we are looking for early-career engineers who want to learn how money actually moves.",
+        "You will participate in a weekly on-call rotation with a senior engineer and write a short post-mortem for every incident you handle."
+      ]
+    }
+  }
+}

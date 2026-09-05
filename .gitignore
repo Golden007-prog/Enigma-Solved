@@ -46,6 +46,15 @@ app/ff-workspace/.flutterflow/merges/
 # --- node (root package.json is pre-existing; keep it) ---
 node_modules/
 
+# --- flutterflow ai workspace: keep the DSL, drop the generated/managed parts ---
+app/ff-workspace/.claude-docs/
+app/ff-workspace/lib/
+app/ff-workspace/pubspec.lock
+app/ff-workspace/.codex/
+app/ff-workspace/.gemini/
+app/ff-workspace/.kiro/
+app/ff-workspace/test/
+
 # --- pre-existing leftovers at the repo root (safe to delete by hand) ---
 Enigma-Solved/
 1.0
@@ -59,3 +68,6 @@ desktop.ini
 
 # --- claude code local settings ---
 .claude/settings.local.json
+
+# --- any env file anywhere ---
+.env

@@ -1,0 +1,1 @@
+In our college project we built a food-delivery API for a hackathon. We used Express for the routes and we stored orders in MongoDB. We had some latency problems on the orders page, so we added caching, and we all worked on the bugs together before the demo.
